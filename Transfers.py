@@ -1,31 +1,6 @@
 import streamlit as st
 import time
 
-def rgb(r, g, b):
-    """Gibt einen Hex-Farbcode für Tkinter zurück"""
-    return f"#{r:02x}{g:02x}{b:02x}"
-###Auswahl###
-darkOrange = rgb(245, 155, 0)
-darksalmon = rgb(233,150,122)
-lightsalmon3 = rgb(205,129,98)
-lightcoral = rgb(240,128,128)
-lightcoral1 = rgb(250,175,175)
-lightpink = rgb(255,182,193)
-deeppink = rgb(238,18,137)
-goldenrod = rgb(218,165,32)
-goldenrod1 = rgb(255, 193, 37)
-steelblue = rgb(70, 130, 180)
-steelblue1 = rgb(99, 184, 255)
-forrestgreen = rgb(34, 139, 34)
-green3 = rgb(0, 205, 0)
-redd = rgb(255, 0, 0)
-redd3 = rgb(195, 0, 0)
-gold2 = rgb(255,215,0)
-firebrick = rgb(178,34,34)
-MediumOrchid = rgb(186,85,211)
-MediumPurple2 = rgb(159,121,238)
-orchid4 = rgb(139,71,137)
-
 
 def prozess_kredit(betrag, interest_rate, firma, bank, speed, schritt):
     # Dynamische Kürzel extrahieren
@@ -649,46 +624,43 @@ def interbank_transfer(betrag, sender, empfaenger, bank_sender, bank_empfaenger,
 
             # Die Sender-Bank leiht sich Reserven bei der ZB, um zahlungsfähig zu sein
             st.session_state.balances["Zentralbank"]["Assets"][f"Forderung {bank_sender}"] += betrag
-            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_sender}"] += betrag
-            st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"] += betrag
             st.session_state.balances[bank_sender]["Liabilities"][f"Kredit bei ZB {s_id}"] += betrag
-
-            st.session_state.highlights = [f"Reserve bei ZB {s_id}", f"Forderung {bank_sender}",f"Kredit bei ZB {s_id}",f"Reserve {bank_sender}"]
+            st.session_state.highlights = [ f"Forderung {bank_sender}",f"Kredit bei ZB {s_id}"]
             st.session_state.logs.append(f"🏛️ ZB stellt {bank_sender} Reserven für den Transfer bereit.")
 
-        # --- SCHRITT 2: Abbuchung beim Sender & ZB-Umschichtung ---
         elif schritt == 2:
-            # 1. Beim Sender wird das Geld abgebucht (Eigenkapital sinkt, da Kauf/Ausgabe)
-            st.session_state.balances[sender]["Assets"][f"Bankguthaben bei {s_id}"] -= betrag
-            #st.session_state.balances[sender]["Liabilities"][f"Eigenkapital {s_num}"] -= betrag
 
-            # 2. Die Bank des Senders verliert die Einlage und die Reserven
-            st.session_state.balances[bank_sender]["Liabilities"][f"Einlage {sender}"] -= betrag
-            st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"] -= betrag
+            st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"] += betrag
+            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_sender}"] += betrag
 
-            # 3. Die Zentralbank schichtet die Reserve zur Empfänger-Bank um
-            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_sender}"] -= betrag
-            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_empfaenger}"] += betrag
+            st.session_state.highlights = [f"Reserve bei ZB {s_id}",f"Reserve {bank_sender}"]
 
-            st.session_state.highlights = [f"Bankguthaben bei {s_id}", f"Reserve {bank_empfaenger}" ,f"Einlage {sender}",f"Reserve {bank_sender}", f"Reserve bei ZB {s_id}" ]
-
-            st.session_state.logs.append(f"🏦 {bank_sender} bucht ab und ZB schichtet Reserven zu {bank_empfaenger} um.")
-
-        # --- SCHRITT 3: Gutschrift beim Empfänger ---
+        # --- SCHRITT 3: Abbuchung beim Sender & ZB-Umschichtung ---
         elif schritt == 3:
-            # 1. Die Empfänger-Bank erhält Reserven und verbucht neue Einlage
+            st.session_state.balances[sender]["Assets"][f"Bankguthaben bei {s_id}"] -= betrag
+            st.session_state.balances[bank_sender]["Liabilities"][f"Einlage {sender}"] -= betrag
+            st.session_state.highlights = [f"Bankguthaben bei {s_id}" ,f"Einlage {sender}"]
+            st.session_state.logs.append(f"🏦 {bank_sender} bucht ab.")
+
+        elif schritt == 4:
+            st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"] -= betrag
+            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_sender}"] -= betrag
+            st.session_state.highlights = [f"Reserve {bank_sender}", f"Reserve bei ZB {s_id}" ]
+        elif schritt == 5:
+            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_empfaenger}"] += betrag
             st.session_state.balances[bank_empfaenger]["Assets"][f"Reserve bei ZB {e_id}"] += betrag
+            st.session_state.highlights = [ f"Reserve {bank_empfaenger}",f"Reserve bei ZB {e_id}"]
+            st.session_state.logs.append(f"🏦 ZB schichtet Reserven zu {bank_empfaenger} um.")
+        # --- SCHRITT 6: Gutschrift beim Empfänger ---
+        elif schritt == 6:
+            # 1. Die Empfänger-Bank erhält Reserven und verbucht neue Einlage
             st.session_state.balances[bank_empfaenger]["Liabilities"][f"Einlage {empfaenger}"] += betrag
-
-            # 2. Der Empfänger erhält das Bankguthaben (Eigenkapital steigt durch Verkauf/Einnahme)
             st.session_state.balances[empfaenger]["Assets"][f"Bankguthaben bei {e_id}"] += betrag
-            #st.session_state.balances[empfaenger]["Liabilities"][f"Eigenkapital {e_num}"] += betrag
-
-            st.session_state.highlights = [f"Bankguthaben bei {e_id}", f"Einlage {empfaenger}" ,f"Reserve bei ZB {e_id}"]
+            st.session_state.highlights = [f"Bankguthaben bei {e_id}", f"Einlage {empfaenger}"]
             st.session_state.logs.append(f"✅ {empfaenger} hat die Zahlung erhalten.")
 
-        # --- SCHRITT 4: Realwirtschaftlicher Transfer (Waren/Sachvermögen) ---
-        elif schritt == 4:
+        # --- SCHRITT 7: Realwirtschaftlicher Transfer (Waren/Sachvermögen) ---
+        elif schritt == 7:
             # In diesem Intro-Modus simulieren wir den Tausch: Geld gegen Sachvermögen
             # Der Empfänger gibt Sachvermögen ab, der Sender erhält es
             st.session_state.balances[empfaenger]["Assets"][f"Sachvermögen {e_num}"] -= betrag
