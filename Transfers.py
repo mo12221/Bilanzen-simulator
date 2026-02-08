@@ -2,6 +2,8 @@ import streamlit as st
 import time
 
 
+
+
 def prozess_kredit(betrag, interest_rate, firma, bank, speed, schritt):
     # Dynamische Kürzel extrahieren
     bank_buchstabe = bank.split()[-1]  # "A", "B" oder "C"
