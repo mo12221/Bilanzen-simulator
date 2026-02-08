@@ -217,7 +217,7 @@ with col_control:
             st.markdown(f"<p style='font-size: 10px; margin: 0;'>{msg}</p>", unsafe_allow_html=True)
 
     st.markdown("### 💰 Eingabe")
-    betrag = st.number_input("Betrag für Aktionen", value=0, step=500, key="main_betrag")
+    betrag = st.number_input("Betrag für Aktionen", value=0, step=100, key="main_betrag")
 
     st.markdown("### 🕹️ Steuerung")
     control_box = st.container(height=400, border=True)
@@ -256,7 +256,13 @@ with col_control:
                     {"func": interbank_transfer,
                      "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 3)},
                     {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 4)}
+                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 4)},
+                    {"func": interbank_transfer,
+                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 5)},
+                    {"func": interbank_transfer,
+                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 6)},
+                    {"func": interbank_transfer,
+                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 7)}
                 ]
                 st.rerun()
         with t2:
@@ -269,7 +275,13 @@ with col_control:
                     {"func": interbank_transfer,
                      "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 3)},
                     {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 4)}
+                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 4)},
+                    {"func": interbank_transfer,
+                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 5)},
+                    {"func": interbank_transfer,
+                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 6)},
+                    {"func": interbank_transfer,
+                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 7)},
                 ]
                 st.rerun()
 
