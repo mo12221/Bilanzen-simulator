@@ -3,8 +3,7 @@ Für die Spielanleitung, lade das PDF "Bilanzen_Simulator" herunter. Die einzeln
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bilanzen-simulator-k6cn6cp6xzrnkhwcz78mdn.streamlit.app/)
 - Spiel 2: Staatsfinanzierung und Steuern
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bilanzen-simulator-ovfhp8n29qgqxzur8buhac.streamlit.app/)
-
-
+- Spiel 3: Geld- und Warenkreislauf (https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bilanzen-simulator-ovfhp8n29qgqxzur8buhac.streamlit.app/)
 
 
 
