@@ -9,3 +9,4 @@ Für die Spielanleitung, lade das PDF "Bilanzen_Simulator" herunter. Die einzeln
 
 
 
+
