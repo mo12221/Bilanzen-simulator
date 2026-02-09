@@ -663,30 +663,31 @@ def interbank_transfer(betrag, sender, empfaenger, bank_sender, bank_empfaenger,
         elif schritt == 2:
             st.session_state.balances[sender]["Assets"][f"Bankguthaben bei {s_id}"] -= betrag
             st.session_state.balances[bank_sender]["Liabilities"][f"Einlage {sender}"] -= betrag
-            st.session_state.highlights_action = [f"Bankguthaben bei {s_id}", f"Einlage {sender}"]
+            st.session_state.highlights_red = [f"Bankguthaben bei {s_id}", f"Einlage {sender}"]
             st.session_state.logs.append(f"🏦 {bank_sender} bucht bei {sender} ab.")
 
         elif schritt == 3:  # Reserven bei Sender-Bank weg
             st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"] -= betrag
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_sender}"] -= betrag
-            st.session_state.highlights_action = [f"Reserve {bank_sender}", f"Reserve bei ZB {s_id}"]
+            st.session_state.highlights_red = [f"Reserve {bank_sender}", f"Reserve bei ZB {s_id}"]
 
         elif schritt == 4:  # Reserven bei Empfänger-Bank dazu
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_empfaenger}"] += betrag
             st.session_state.balances[bank_empfaenger]["Assets"][f"Reserve bei ZB {e_id}"] += betrag
-            st.session_state.highlights_action = [f"Reserve {bank_empfaenger}", f"Reserve bei ZB {e_id}"]
+            st.session_state.highlights_green = [f"Reserve {bank_empfaenger}", f"Reserve bei ZB {e_id}"]
             st.session_state.logs.append(f"🏦 ZB schichtet Reserven zu {bank_empfaenger} um.")
 
         elif schritt == 5:  # Gutschrift Empfänger
             st.session_state.balances[bank_empfaenger]["Liabilities"][f"Einlage {empfaenger}"] += betrag
             st.session_state.balances[empfaenger]["Assets"][f"Bankguthaben bei {e_id}"] += betrag
-            st.session_state.highlights_action = [f"Bankguthaben bei {e_id}", f"Einlage {empfaenger}"]
+            st.session_state.highlights_green = [f"Bankguthaben bei {e_id}", f"Einlage {empfaenger}"]
             st.session_state.logs.append(f"✅ {empfaenger} erhält Gutschrift.")
 
         elif schritt == 6:  # Waren/Sachwert
             st.session_state.balances[empfaenger]["Assets"][f"Sachvermögen {e_num}"] -= betrag
             st.session_state.balances[sender]["Assets"][f"Sachvermögen {s_num}"] += betrag
-            st.session_state.highlights_action = [f"Sachvermögen {s_num}", f"Sachvermögen {e_num}"]
+            st.session_state.highlights_red = [f"Sachvermögen {e_num}"]
+            st.session_state.highlights_green = [f"Sachvermögen {s_num}"]
         elif schritt == 7:
             st.session_state.highlights_plan = []
             st.session_state.logs.append(f"📦 Sachvermögen übertragen.")
