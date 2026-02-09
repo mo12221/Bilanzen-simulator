@@ -96,7 +96,7 @@ st.markdown("""
             100% { background-color: transparent; }
         }
         .action-change {
-            animation: flash-action 3s ease-out;
+            animation: flash-action 4s ease-out;
             font-weight: bold !important;
             color: #b71c1c !important; /* Dunkelrot für bessere Lesbarkeit */
             border: 1px solid #e53935;
