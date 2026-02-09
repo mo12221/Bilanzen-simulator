@@ -246,7 +246,7 @@ with col_control:
     st.markdown("### 🕹️ Steuerung")
     control_box = st.container(height=400, border=True)
     with control_box:
-        speed = st.slider("Speed", 0.0, 4.0, 2, key="intro_speed")
+        speed = st.slider("Speed", 0.0, 4.0, 2.0, key="intro_speed")
         zins_val = st.slider("Zinssatz (%)", 0.0, 0.20, 0.0, step=0.01)
         st.write("**Kredite (Geld schöpfen)**")
         c1, c2 = st.columns(2)
