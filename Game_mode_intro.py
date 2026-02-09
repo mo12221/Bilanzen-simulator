@@ -90,19 +90,33 @@ st.markdown("""
             font-weight: 500;
         }
         
-        /* Roter Flash: Was ändert sich JETZT? */
-        @keyframes flash-action {
-            0% { background-color: #ffcdd2; color: #b71c1c; } /* Hellrot mit dunkelroter Schrift */
-            100% { background-color: transparent; }
-        }
-        .action-change {
-            animation: flash-action 4s ease-out;
-            font-weight: bold !important;
-            color: #b71c1c !important; /* Dunkelrot für bessere Lesbarkeit */
-            border: 1px solid #e53935;
-            padding: 2px;
-            border-radius: 3px;
-        }
+/* GRÜNER Flash: Für Zunahmen (+) */
+    @keyframes flash-green {
+        0% { background-color: #c8e6c9; color: #1b5e20; }
+        100% { background-color: transparent; }
+    }
+    .action-green {
+        animation: flash-green 4s ease-out;
+        font-weight: bold !important;
+        color: #1b5e20 !important;
+        border: 1px solid #2e7d32;
+        padding: 2px;
+        border-radius: 3px;
+    }
+
+    /* ROTER Flash: Für Abnahmen (-) */
+    @keyframes flash-red {
+        0% { background-color: #ffcdd2; color: #b71c1c; }
+        100% { background-color: transparent; }
+    }
+    .action-red {
+        animation: flash-red 4s ease-out;
+        font-weight: bold !important;
+        color: #b71c1c !important;
+        border: 1px solid #c62828;
+        padding: 2px;
+        border-radius: 3px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -141,7 +155,8 @@ if 'initialized' not in st.session_state:
     st.session_state.logs = ["Willkommen beim Simulator!"]
     st.session_state.current_round = 1
     st.session_state.actions_done = []
-    st.session_state.highlights_action = []
+    st.session_state.highlights_red = []
+    st.session_state.highlights_green = []
     st.session_state.highlights_plan = []
     st.session_state.last_logged_round = 0
     st.session_state.initialized = True
@@ -179,10 +194,13 @@ def show_bilanz(name):
         liabs = st.session_state.balances[name]["Liabilities"]
 
         def format_cell(k, v):
-            # Priorität 1: Aktuelle Änderung (Rot)
-            if k in st.session_state.get("highlights_action", []):
-                return f'<div class="action-change">{k}: {v}</div>'
-            # Priorität 2: Geplanter Bereich (Gelb)
+            # 1. Priorität: Grün (Zunahme)
+            if k in st.session_state.get("highlights_green", []):
+                return f'<div class="action-green">{k}: {v}</div>'
+            # 2. Priorität: Rot (Abnahme)
+            elif k in st.session_state.get("highlights_red", []):
+                return f'<div class="action-red">{k}: {v}</div>'
+            # 3. Priorität: Plan (Gelb)
             elif k in st.session_state.get("highlights_plan", []):
                 return f'<div class="plan-change">{k}: {v}</div>'
             return f"{k}: {v}"
@@ -254,14 +272,14 @@ with col_control:
             if st.button("Kredit Kunde 1", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": prozess_kredit_intro, "args": (betrag, zins_val, "Kunde 1", "Bank A", speed, i)}
-                    for i in range(1, 5)
+                    for i in range(1, 6)
                 ]
                 st.rerun()
         with c2:
             if st.button("Kredit Kunde 2", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": prozess_kredit, "args": (betrag, zins_val, "Kunde 2", "Bank B", speed, i)}
-                    for i in range(1, 5)
+                    for i in range(1, 6)
                 ]
                 st.rerun()
 
@@ -313,28 +331,31 @@ with col_control:
 # --- MOTOR (Optimiert für Plan & Action Timing) ---
 # --- PRÄZISIONS-MOTOR V4 (Einzelschritt-Garantie) ---
 # --- PRÄZISIONS-MOTOR V5 (Sichtbarkeit für den letzten Schritt) ---
-if st.session_state.get("pending_steps") or st.session_state.get("highlights_action"):
+# --- PRÄZISIONS-MOTOR V8 (Grün & Rot Support) ---
+has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
 
-    # 1. Lösch-Phase: Wenn Rot leuchtet, löschen wir es für den nächsten Schritt
-    if st.session_state.get("highlights_action"):
-        # Wir warten hier NICHT (das haben wir nach der Aktion schon getan)
-        st.session_state.highlights_action = []
+if st.session_state.get("pending_steps") or has_active_highlights:
 
-        # Falls die Warteschlange jetzt leer ist, löschen wir auch den gelben Plan
+    # 1. LÖSCH-PHASE: Wenn Farbe leuchtet, löschen wir sie für den nächsten Schritt
+    if has_active_highlights:
+        # Wir lassen die Farbe für die Dauer des Sliders stehen (wurde unten pausiert)
+        st.session_state.highlights_green = []
+        st.session_state.highlights_red = []
+
         if not st.session_state.get("pending_steps"):
             st.session_state.highlights_plan = []
 
-        time.sleep(1)  # Kurzer visueller Reset
+        time.sleep(2) # Kurzer technischer Reset
         st.rerun()
 
-    # 2. Aktions-Phase: Nächsten Schritt ausführen
+    # 2. AKTIONS-PHASE: Nächsten Schritt ausführen
     elif st.session_state.get("pending_steps"):
         current_step_data = st.session_state.pending_steps.pop(0)
         current_step_data["func"](*current_step_data["args"])
 
-        # JEDER Schritt (auch der gelbe Plan und das letzte Rot) bekommt die Pause vom Slider
-        waited_time = st.session_state.get("intro_speed", 2)
+        # JEDER Schritt (auch der gelbe Plan) bekommt die Pause vom Slider
+        waited_time = st.session_state.get("intro_speed", 2.0)
         time.sleep(waited_time)
 
-        # Wir triggern den Rerun, damit das gerade gesetzte Highlight angezeigt wird
+        # Rerun, damit das gerade gesetzte Highlight (Grün oder Rot) angezeigt wird
         st.rerun()
