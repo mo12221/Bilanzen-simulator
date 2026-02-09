@@ -850,7 +850,6 @@ def staat_prozess(aktion, betrag, schritt):
             elif schritt == 4:
                 st.session_state.balances["Bank A"]["Liabilities"]["Einlage Bürger"] += betrag
                 st.session_state.balances["Bürger"]["Assets"]["Bankguthaben"] += betrag
-                st.session_state.balances["Bürger"]["Liabilities"]["Eigenkapital Bürger"] += betrag
                 st.session_state.highlights_green = ["Bankguthaben", "Einlage Bürger"]
             elif schritt == 5:
                 st.session_state.balances["Staat"]["Liabilities"]["Eigenkapital Staat"] -= betrag
