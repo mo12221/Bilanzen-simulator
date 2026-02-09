@@ -32,11 +32,47 @@ st.markdown("""
 
         hr { margin-top: 0.4rem !important; margin-bottom: 0.4rem !important; }
 
-        @keyframes flash {
-            0% { background-color: #ffff99; }
+    /* Gelber Plan: Was wird sich bewegen? */
+        @keyframes flash-plan {
+            0% { background-color: #fff9c4; } /* Sanftes Pastellgelb */
+            100% { background-color: #fff9c4; } 
+        }
+        .plan-change {
+            background-color: #fff9c4 !important;
+            color: #000000 !important; /* Explizit schwarze Schrift */
+            border: 1px solid #fbc02d;
+            padding: 2px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        
+        /* GRÜNER Flash: Für Zunahmen (+) */
+        @keyframes flash-green {
+            0% { background-color: #c8e6c9; color: #1b5e20; }
             100% { background-color: transparent; }
         }
-        .flash-change { animation: flash 2s ease-out; border-radius: 3px; padding: 0 2px; }
+        .action-green {
+            animation: flash-green 4s ease-out;
+            font-weight: bold !important;
+            color: #1b5e20 !important;
+            border: 1px solid #2e7d32;
+            padding: 2px;
+            border-radius: 3px;
+        }
+    
+        /* ROTER Flash: Für Abnahmen (-) */
+        @keyframes flash-red {
+            0% { background-color: #ffcdd2; color: #b71c1c; }
+            100% { background-color: transparent; }
+        }
+        .action-red {
+            animation: flash-red 4s ease-out;
+            font-weight: bold !important;
+            color: #b71c1c !important;
+            border: 1px solid #c62828;
+            padding: 2px;
+            border-radius: 3px;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,27 +98,48 @@ if 'initialized' not in st.session_state:
     }
     st.session_state.logs = ["Willkommen im Staats-Simulator!"]
     st.session_state.pending_steps = []
-    st.session_state.highlights = []
+    st.session_state.highlights_red = []
+    st.session_state.highlights_green = []
+    st.session_state.highlights_plan = []
     st.session_state.initialized = True
 
 # 4. HILFSFUNKTION BILANZ
 def show_bilanz(name):
     if name in st.session_state.balances:
-        st.markdown(f"<h4>{name}</h4>", unsafe_allow_html=True)
+        st.markdown(f"#### {name}")
         assets = st.session_state.balances[name]["Assets"]
         liabs = st.session_state.balances[name]["Liabilities"]
 
-        a_list = [f'<div class="flash-change">{k}: {v}</div>' if k in st.session_state.highlights else f"{k}: {v}" for
-                  k, v in assets.items()]
-        l_list = [f'<div class="flash-change">{k}: {v}</div>' if k in st.session_state.highlights else f"{k}: {v}" for
-                  k, v in liabs.items()]
+        def format_cell(k, v):
+            # 1. Priorität: Grün (Zunahme)
+            if k in st.session_state.get("highlights_green", []):
+                return f'<div class="action-green">{k}: {v}</div>'
+            # 2. Priorität: Rot (Abnahme)
+            elif k in st.session_state.get("highlights_red", []):
+                return f'<div class="action-red">{k}: {v}</div>'
+            # 3. Priorität: Plan (Gelb)
+            elif k in st.session_state.get("highlights_plan", []):
+                return f'<div class="plan-change">{k}: {v}</div>'
+            return f"{k}: {v}"
+
+        a_list = [format_cell(k, v) for k, v in assets.items()]
+        l_list = [format_cell(k, v) for k, v in liabs.items()]
 
         max_rows = max(len(a_list), len(l_list))
-        a_list += [""] * (max_rows - len(a_list))
-        l_list += [""] * (max_rows - len(l_list))
+        while len(a_list) < max_rows:
+            a_list.append("")
+        while len(l_list) < max_rows:
+            l_list.append("")
 
-        df = pd.DataFrame({"Aktiva": a_list, "Passiva": l_list})
-        st.write(df.to_html(escape=False, index=False), unsafe_allow_html=True)
+        # Jetzt erstellen wir den DataFrame mit exakt ZWEI Spalten
+        df = pd.DataFrame({
+            "Aktiva": a_list,
+            "Passiva": l_list
+        })
+
+        # Anzeige als kompakte Tabelle ohne Index-Spalte
+        html_table = df.to_html(escape=False, index=False)
+        st.write(html_table, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------
@@ -110,37 +167,37 @@ with col_control:
         st.write("**Bank**")
         if st.button("ZB Kredit erzeugen", use_container_width=True):
             st.session_state.pending_steps = [
-                {"func": staat_prozess, "args": ("Kredit ZB", betrag_val, 1)},
-                {"func": staat_prozess, "args": ("Kredit ZB", betrag_val, 2)}
+                {"func": staat_prozess, "args": ("Kredit ZB", betrag_val, i)}
+                for i in range(1, 5)
             ]
             st.rerun()
         st.divider()
         if st.button("Anleihe kaufen", use_container_width=True):
             st.session_state.pending_steps = [
-                {"func": staat_prozess, "args": ("verkaufen", betrag_val, 1)},
-                {"func": staat_prozess, "args": ("verkaufen", betrag_val, 2)},
-                {"func": staat_prozess, "args": ("verkaufen", betrag_val, 3)}
+                {"func": staat_prozess, "args": ("verkaufen", betrag_val, i)}
+                for i in range(1, 6)
             ]
             st.rerun()
         st.write("**Staat**")
         if st.button("Anleihe erzeugen", use_container_width=True):
-            staat_prozess("erzeugen", betrag_val, 1)
+            st.session_state.pending_steps = [
+                {"func": staat_prozess, "args":("erzeugen", betrag_val, i)}
+                for i in range(1, 4)
+            ]
             st.rerun()
         st.divider()
         if st.button("Lohn zahlen (Staat)", use_container_width=True):
             st.session_state.pending_steps = [
-                {"func": staat_prozess, "args": ("lohn", betrag_val, 1)},
-                {"func": staat_prozess, "args": ("lohn", betrag_val, 2)},
-                {"func": staat_prozess, "args": ("lohn", betrag_val, 3)}
+                {"func": staat_prozess, "args": ("lohn", betrag_val, i)}
+                    for i in range(1, 7)
             ]
             st.rerun()
         st.divider()
         st.write("**Bürger**")
         if st.button("5. Steuern zahlen (Bürger)", use_container_width=True):
             st.session_state.pending_steps = [
-                {"func": staat_prozess, "args": ("steuern", betrag_val, 1)},
-                {"func": staat_prozess, "args": ("steuern", betrag_val, 2)},
-                {"func": staat_prozess, "args": ("steuern", betrag_val, 3)}
+                {"func": staat_prozess, "args": ("steuern", betrag_val, i)}
+                for i in range(1, 7)
             ]
             st.rerun()
 
@@ -172,15 +229,30 @@ with col_tableau:
 # ---------------------------------------------------------
 # 6. MOTOR (Für die Animationen)
 # ---------------------------------------------------------
-if st.session_state.get("pending_steps"):
-    if st.session_state.highlights:
-        # Kurze Pause, um das Highlight zu zeigen, dann löschen für den nächsten Flash
-        st.session_state.highlights = []
-        time.sleep(1)
+has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
+
+if st.session_state.get("pending_steps") or has_active_highlights:
+
+    # 1. LÖSCH-PHASE: Wenn Farbe leuchtet, löschen wir sie für den nächsten Schritt
+    if has_active_highlights:
+        # Wir lassen die Farbe für die Dauer des Sliders stehen (wurde unten pausiert)
+        st.session_state.highlights_green = []
+        st.session_state.highlights_red = []
+
+        if not st.session_state.get("pending_steps"):
+            st.session_state.highlights_plan = []
+
+        time.sleep(1) # Kurzer technischer Reset
         st.rerun()
-    else:
-        # Nächsten Schritt ausführen
-        step = st.session_state.pending_steps.pop(0)
-        step["func"](*step["args"])
-        time.sleep(speed)
+
+    # 2. AKTIONS-PHASE: Nächsten Schritt ausführen
+    elif st.session_state.get("pending_steps"):
+        current_step_data = st.session_state.pending_steps.pop(0)
+        current_step_data["func"](*current_step_data["args"])
+
+        # JEDER Schritt (auch der gelbe Plan) bekommt die Pause vom Slider
+        waited_time = st.session_state.get("intro_speed", 1)
+        time.sleep(waited_time)
+
+        # Rerun, damit das gerade gesetzte Highlight (Grün oder Rot) angezeigt wird
         st.rerun()
