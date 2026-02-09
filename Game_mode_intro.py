@@ -333,7 +333,7 @@ if st.session_state.get("pending_steps") or st.session_state.get("highlights_act
         current_step_data["func"](*current_step_data["args"])
 
         # JEDER Schritt (auch der gelbe Plan und das letzte Rot) bekommt die Pause vom Slider
-        waited_time = st.session_state.get("intro_speed", 1)
+        waited_time = st.session_state.get("intro_speed", 2)
         time.sleep(waited_time)
 
         # Wir triggern den Rerun, damit das gerade gesetzte Highlight angezeigt wird
