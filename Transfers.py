@@ -751,22 +751,22 @@ def prozess_kredit_intro(betrag, interest_rate, firma, bank, speed, schritt):
 
             if schritt == 2:
                 # 1. Bankguthaben sinkt um Tilgung + Zins
-                st.session_state.balances[firma]["Assets"][asset_firma] -= gesamt_abfluss
-
-                # 2. Die Kredit-Schuld sinkt NUR um den Tilgungsanteil
-                st.session_state.balances[firma]["Liabilities"][liab_firma] -= kredit_anteil
+                st.session_state.balances[firma]["Assets"][asset_firma] -= kredit_anteil
+                st.session_state.balances[bank]["Liabilities"][liab_bank] -= kredit_anteil
                 st.session_state.highlights_red = [asset_firma, liab_bank]
                 st.session_state.logs.append(f"📉 {firma}: Zahlt {kredit_anteil}€ Tilgung und {zins_anteil}€ Zinsen.")
             elif schritt == 3:
                 # Bank erhält: Kredit-Forderung weg, Einlagen-Verbindlichkeit weg, EK steigt (Zinsertrag)
                 st.session_state.balances[bank]["Assets"][asset_bank] -= kredit_anteil
-                st.session_state.balances[bank]["Liabilities"][liab_bank] -= gesamt_abfluss
+                st.session_state.balances[firma]["Liabilities"][liab_firma] -= kredit_anteil
+
                 st.session_state.highlights_red = [asset_bank, liab_firma]
             elif schritt == 4:
+                st.session_state.balances[firma]["Assets"][asset_firma] -= zins_anteil
                 if ek_name_bank in st.session_state.balances[bank]["Liabilities"]:
                     st.session_state.balances[bank]["Liabilities"][ek_name_bank] += zins_anteil
                 st.session_state.balances[firma]["Liabilities"][ek_name_firma] -= zins_anteil
-                st.session_state.highlights_red = [ek_name_firma]
+                st.session_state.highlights_red = [ek_name_firma,asset_firma]
                 st.session_state.highlights_green = [ek_name_bank]
             elif schritt == 5:
                 st.session_state.highlights_plan = []
