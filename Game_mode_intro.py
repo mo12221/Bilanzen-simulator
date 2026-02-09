@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 import time
-from Transfers import prozess_kredit, lohnzahlung_prozess, interbank_transfer,prozess_kredit_intro
+
+from Transfers import prozess_kredit, lohnzahlung_prozess, interbank_transfer,prozess_kredit_intro, zb_kredit_prozess
 from Game_play import get_mission
 import matplotlib.pyplot as plt
 
@@ -67,15 +68,41 @@ st.markdown("""
                     text-align: center;
                     font-family: sans-serif;
                 }
-            @keyframes flash {
-                    0% { background-color: #ffff99; } /* Helles Gelb am Anfang */
-                    100% { background-color: transparent; } /* Zurück zum Normalzustand */
-                }
+        @keyframes flash {
+                0% { background-color: #ffff99; } /* Helles Gelb am Anfang */
+                100% { background-color: transparent; } /* Zurück zum Normalzustand */
+            }
 
-                .flash-change {
-                    animation: flash 2s ease-out;
-                }
-
+            .flash-change {
+                animation: flash 2s ease-out;
+            }
+    /* Gelber Plan: Was wird sich bewegen? */
+        @keyframes flash-plan {
+            0% { background-color: #fff9c4; } /* Sanftes Pastellgelb */
+            100% { background-color: #fff9c4; } 
+        }
+        .plan-change {
+            background-color: #fff9c4 !important;
+            color: #000000 !important; /* Explizit schwarze Schrift */
+            border: 1px solid #fbc02d;
+            padding: 2px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        
+        /* Roter Flash: Was ändert sich JETZT? */
+        @keyframes flash-action {
+            0% { background-color: #ffcdd2; color: #b71c1c; } /* Hellrot mit dunkelroter Schrift */
+            100% { background-color: transparent; }
+        }
+        .action-change {
+            animation: flash-action 3s ease-out;
+            font-weight: bold !important;
+            color: #b71c1c !important; /* Dunkelrot für bessere Lesbarkeit */
+            border: 1px solid #e53935;
+            padding: 2px;
+            border-radius: 3px;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -114,7 +141,8 @@ if 'initialized' not in st.session_state:
     st.session_state.logs = ["Willkommen beim Simulator!"]
     st.session_state.current_round = 1
     st.session_state.actions_done = []
-    st.session_state.highlights = []
+    st.session_state.highlights_action = []
+    st.session_state.highlights_plan = []
     st.session_state.last_logged_round = 0
     st.session_state.initialized = True
 
@@ -146,27 +174,23 @@ with col_tableau:
 
 def show_bilanz(name):
     if name in st.session_state.balances:
-        st.markdown(f"<h4 style='text-align: center;'>{name}</h4>", unsafe_allow_html=True)
-
-        assets_dict = st.session_state.balances[name]["Assets"]
-        liabs_dict = st.session_state.balances[name]["Liabilities"]
-
+        st.markdown(f"#### {name}")
         assets = st.session_state.balances[name]["Assets"]
         liabs = st.session_state.balances[name]["Liabilities"]
-        a_list = []
-        for k, v in assets.items():
-            # Check: Ist dieses Konto in der Liste der zuletzt geänderten?
-            if k in st.session_state.get("highlights", []):
-                a_list.append(f'<div class="flash-change">{k}: {v}</div>')
-            else:
-                a_list.append(f"{k}: {v}")
-        l_list = []
-        for k, v in liabs_dict.items():
-            # Check: Ist dieses Konto in der Liste der zuletzt geänderten?
-            if k in st.session_state.get("highlights", []):
-                l_list.append(f'<div class="flash-change">{k}: {v}</div>')
-            else:
-                l_list.append(f"{k}: {v}")
+
+        def format_cell(k, v):
+            # Priorität 1: Aktuelle Änderung (Rot)
+            if k in st.session_state.get("highlights_action", []):
+                return f'<div class="action-change">{k}: {v}</div>'
+            # Priorität 2: Geplanter Bereich (Gelb)
+            elif k in st.session_state.get("highlights_plan", []):
+                return f'<div class="plan-change">{k}: {v}</div>'
+            return f"{k}: {v}"
+
+        a_list = [format_cell(k, v) for k, v in assets.items()]
+        l_list = [format_cell(k, v) for k, v in liabs.items()]
+
+        # ... Rest der Funktion (DataFrame-Erstellung) wie gehabt ...
 
         # Symmetrie herstellen (auffüllen mit Leerzeichen)
         max_rows = max(len(a_list), len(l_list))
@@ -229,84 +253,88 @@ with col_control:
         with c1:
             if st.button("Kredit Kunde 1", use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": prozess_kredit_intro, "args": (betrag, zins_val, "Kunde 1", "Bank A", speed, 1)},
-                    {"func": prozess_kredit_intro, "args": (betrag, zins_val, "Kunde 1", "Bank A", speed, 2)}
+                    {"func": prozess_kredit_intro, "args": (betrag, zins_val, "Kunde 1", "Bank A", speed, i)}
+                    for i in range(1, 5)
                 ]
                 st.rerun()
         with c2:
             if st.button("Kredit Kunde 2", use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": prozess_kredit, "args": (betrag, zins_val, "Kunde 2", "Bank B", speed, 1)},
-                    {"func": prozess_kredit, "args": (betrag, zins_val, "Kunde 2", "Bank B", speed, 2)}
+                    {"func": prozess_kredit, "args": (betrag, zins_val, "Kunde 2", "Bank B", speed, i)}
+                    for i in range(1, 5)
                 ]
                 st.rerun()
 
         st.divider()
-        st.write("**Überweisungen (Geld transferieren)**")
+        # --- Unter "Steuerung" im control_box Bereich ---
+
+        st.write("**Zentralbank-Liquidität**")
+        zbc1, zbc2 = st.columns(2)
+        with zbc1:
+            if st.button("ZB-Kredit Bank A", use_container_width=True):
+                st.session_state.pending_steps = [
+                    {"func": zb_kredit_prozess,
+                     "args": (betrag, "Bank A", speed, i)}
+                    for i in range(1, 5)
+                ]
+                st.rerun()
+        with zbc2:
+            if st.button("ZB-Kredit Bank B", use_container_width=True):
+                st.session_state.pending_steps = [
+                    {"func": zb_kredit_prozess,
+                     "args": (betrag, "Bank B", speed, i)}
+                    for i in range(1, 5)
+                ]
+                st.rerun()
+
+        st.divider()
+        st.write("**Zahlungsverkehr (Transfer)**")
         t1, t2 = st.columns(2)
-        from Transfers import interbank_transfer  # Import hier oder oben
 
         with t1:
-            if st.button("Transfer 1 -> 2", use_container_width=True):
+            if st.button("Transfer 1 ➔ 2", use_container_width=True):
+                # Jetzt nur noch 5 Schritte (alt 3 bis 7)
                 st.session_state.pending_steps = [
                     {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 1)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 2)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 3)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 4)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 5)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 6)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, 7)}
+                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, i)}
+                    for i in range(1, 8)
                 ]
                 st.rerun()
+
         with t2:
-            if st.button("Transfer 2 -> 1", use_container_width=True):
+            if st.button("Transfer 2 ➔ 1", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 1)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 2)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 3)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 4)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 5)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 6)},
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, 7)},
+                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, i)}
+                    for i in range(1, 8)
                 ]
                 st.rerun()
 
+# --- MOTOR (Optimiert für Plan & Action Timing) ---
+# --- PRÄZISIONS-MOTOR V4 (Einzelschritt-Garantie) ---
+# --- PRÄZISIONS-MOTOR V5 (Sichtbarkeit für den letzten Schritt) ---
+if st.session_state.get("pending_steps") or st.session_state.get("highlights_action"):
 
-# --- MOTOR (Optimiert für perfektes Timing) ---
-if st.session_state.get("pending_steps"):
+    # 1. Lösch-Phase: Wenn Rot leuchtet, löschen wir es für den nächsten Schritt
+    if st.session_state.get("highlights_action"):
+        # Wir warten hier NICHT (das haben wir nach der Aktion schon getan)
+        st.session_state.highlights_action = []
 
-    # Prüfen, ob wir gerade in einer "Lösch-Phase" sind
-    # Wir nutzen ein Hilfs-Flag, um zu wissen, ob wir gerade erst gelöscht haben
-    if st.session_state.get("highlights") != []:
-        # Highlights sind da -> wir löschen sie jetzt für den nächsten Flash
-        st.session_state.highlights = []
-        time.sleep(1)  # Ganz kurzer Moment für den Browser-Reset
+        # Falls die Warteschlange jetzt leer ist, löschen wir auch den gelben Plan
+        if not st.session_state.get("pending_steps"):
+            st.session_state.highlights_plan = []
+
+        time.sleep(1)  # Kurzer visueller Reset
         st.rerun()
 
-    else:
-        # Highlights sind leer -> jetzt führen wir den nächsten echten Schritt aus
-        current_action = st.session_state.pending_steps.pop(0)
-        current_action["func"](*current_action["args"])
+    # 2. Aktions-Phase: Nächsten Schritt ausführen
+    elif st.session_state.get("pending_steps"):
+        current_step_data = st.session_state.pending_steps.pop(0)
+        current_step_data["func"](*current_step_data["args"])
 
-        # Jetzt leuchten die neuen Highlights. Wir warten die volle eingestellte Zeit,
-        # damit der Nutzer die Buchung in Ruhe lesen kann.
-        current_speed = st.session_state.get("intro_speed", 1.0)
-        time.sleep(current_speed)
+        # JEDER Schritt (auch der gelbe Plan und das letzte Rot) bekommt die Pause vom Slider
+        waited_time = st.session_state.get("intro_speed", 1)
+        time.sleep(waited_time)
 
-        # Nach der Pause triggern wir den Rerun.
-        # Da Highlights jetzt NICHT leer sind, geht er oben in den "Lösch-Teil".
+        # Wir triggern den Rerun, damit das gerade gesetzte Highlight angezeigt wird
         st.rerun()
