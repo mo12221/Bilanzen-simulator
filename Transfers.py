@@ -616,14 +616,14 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
             # ZB Forderung hoch, Bank Verbindlichkeit hoch
             st.session_state.balances["Zentralbank"]["Assets"][f"Forderung {bank_name}"] += betrag
             st.session_state.balances[bank_name]["Liabilities"][f"Kredit bei ZB {b_id}"] += betrag
-            st.session_state.highlights_action = [f"Forderung {bank_name}", f"Kredit bei ZB {b_id}"]
+            st.session_state.highlights_green = [f"Forderung {bank_name}", f"Kredit bei ZB {b_id}"]
             st.session_state.logs.append(f"🏛️ {bank_name} nimmt ZB-Kredit auf (+{betrag}).")
 
         elif schritt == 3:
             # ZB schreibt Reserven gut
             st.session_state.balances[bank_name]["Assets"][f"Reserve bei ZB {b_id}"] += betrag
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_name}"] += betrag
-            st.session_state.highlights_action = [f"Reserve bei ZB {b_id}", f"Reserve {bank_name}"]
+            st.session_state.highlights_green = [f"Reserve bei ZB {b_id}", f"Reserve {bank_name}"]
         elif schritt == 4:
             st.session_state.highlights_plan = []
             st.session_state.logs.append(f"💰 Reserven wurden {bank_name} gutgeschrieben.")
@@ -726,14 +726,14 @@ def prozess_kredit_intro(betrag, interest_rate, firma, bank, speed, schritt):
                 # Buchung bei der Firma (Aktiva hoch, Passiva bei Bank hoch)
                 st.session_state.balances[firma]["Assets"][asset_firma] += betrag
                 st.session_state.balances[bank]["Liabilities"][liab_bank] += betrag
-                st.session_state.highlights_action = [asset_firma, liab_bank]
+                st.session_state.highlights_green = [asset_firma, liab_bank]
                 st.session_state.logs.append(f"🏦 {bank}: Schöpft Giralgeld für {firma}.")
 
             elif schritt == 3:
                 # Buchung bei der Bank (Forderung hoch, Verbindlichkeit Firma hoch)
                 st.session_state.balances[bank]["Assets"][asset_bank] += betrag
                 st.session_state.balances[firma]["Liabilities"][liab_firma] += betrag
-                st.session_state.highlights_action = [asset_bank, liab_firma]
+                st.session_state.highlights_green = [asset_bank, liab_firma]
 
             elif schritt ==4:
                 st.session_state.highlights_plan = []
@@ -754,24 +754,20 @@ def prozess_kredit_intro(betrag, interest_rate, firma, bank, speed, schritt):
 
                 # 2. Die Kredit-Schuld sinkt NUR um den Tilgungsanteil
                 st.session_state.balances[firma]["Liabilities"][liab_firma] -= kredit_anteil
-
-                # 3. Der Zinsanteil wird vom Eigenkapital abgezogen
-                # Wir nutzen hier ek_name_firma (z.B. "Eigenkapital 1")
-                st.session_state.balances[firma]["Liabilities"][ek_name_firma] -= zins_anteil
-
-                # Highlights für die Bilanz setzen
-                st.session_state.highlights_action = [asset_firma, liab_firma, ek_name_firma]
+                st.session_state.highlights_red = [asset_firma, liab_bank]
                 st.session_state.logs.append(f"📉 {firma}: Zahlt {kredit_anteil}€ Tilgung und {zins_anteil}€ Zinsen.")
             elif schritt == 3:
                 # Bank erhält: Kredit-Forderung weg, Einlagen-Verbindlichkeit weg, EK steigt (Zinsertrag)
                 st.session_state.balances[bank]["Assets"][asset_bank] -= kredit_anteil
                 st.session_state.balances[bank]["Liabilities"][liab_bank] -= gesamt_abfluss
-
+                st.session_state.highlights_red = [asset_bank, liab_firma]
+            elif schritt == 4:
                 if ek_name_bank in st.session_state.balances[bank]["Liabilities"]:
                     st.session_state.balances[bank]["Liabilities"][ek_name_bank] += zins_anteil
-
-                st.session_state.highlights_action = [asset_bank, liab_bank,ek_name_bank]
-            elif schritt == 4:
+                st.session_state.balances[firma]["Liabilities"][ek_name_firma] -= zins_anteil
+                st.session_state.highlights_red = [ek_name_firma]
+                st.session_state.highlights_green = [ek_name_bank]
+            elif schritt == 5:
                 st.session_state.highlights_plan = []
                 st.session_state.logs.append(f"🏛️ {bank}: Zinsertrag verbucht und Geldmenge reduziert.")
 
