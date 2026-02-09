@@ -601,77 +601,96 @@ def regeneration_prozess():
 """Introduction"""
 #### Funktionen für Introdukction
 
-def interbank_transfer(betrag, sender, empfaenger, bank_sender, bank_empfaenger, speed, schritt):
-    """
-    betrag: Überweisungssumme
-    sender: "Kunde 1"
-    empfaenger: "Kunde 2"
-    bank_sender: "Bank A"
-    bank_empfaenger: "Bank B"
-    schritt: 1 bis 4
-    """
-    s_id = bank_sender.split()[-1]   # "A"
-    e_id = bank_empfaenger.split()[-1] # "B"
-    s_num = sender.split()[-1]       # "1"
-    e_num = empfaenger.split()[-1]   # "2"
+import streamlit as st
+
+
+def zb_kredit_prozess(betrag, bank_name, speed, schritt):
+    """Schritt 1 -3: Bank leiht sich Reserven bei der ZB"""
+    b_id = bank_name.split()[-1]  # "A" oder "B"
+
     try:
-        # --- SCHRITT 1: ZB-Refinanzierung (Bank besorgt sich Reserven) ---
         if schritt == 1:
-            # Validierung: Hat der Sender überhaupt genug Geld?
-            guthaben_sender = st.session_state.balances[sender]["Assets"][f"Bankguthaben bei {s_id}"]
-            if betrag > guthaben_sender:
-                st.session_state.logs.append(f"⚠️ {sender} hat nicht genug Guthaben für den Transfer!")
+            st.session_state.highlights_action = []
+            st.session_state.highlights_plan = [f"Forderung {bank_name}", f"Kredit bei ZB {b_id}",f"Reserve bei ZB {b_id}", f"Reserve {bank_name}"]
+        elif schritt == 2:
+            # ZB Forderung hoch, Bank Verbindlichkeit hoch
+            st.session_state.balances["Zentralbank"]["Assets"][f"Forderung {bank_name}"] += betrag
+            st.session_state.balances[bank_name]["Liabilities"][f"Kredit bei ZB {b_id}"] += betrag
+            st.session_state.highlights_action = [f"Forderung {bank_name}", f"Kredit bei ZB {b_id}"]
+            st.session_state.logs.append(f"🏛️ {bank_name} nimmt ZB-Kredit auf (+{betrag}).")
+
+        elif schritt == 3:
+            # ZB schreibt Reserven gut
+            st.session_state.balances[bank_name]["Assets"][f"Reserve bei ZB {b_id}"] += betrag
+            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_name}"] += betrag
+            st.session_state.highlights_action = [f"Reserve bei ZB {b_id}", f"Reserve {bank_name}"]
+        elif schritt == 4:
+            st.session_state.highlights_plan = []
+            st.session_state.logs.append(f"💰 Reserven wurden {bank_name} gutgeschrieben.")
+    except KeyError as e:
+        st.error(f"Fehler: Das Konto {e} wurde nicht gefunden! Überprüfe die Initialisierung.")
+        st.session_state.pending_steps = []
+
+
+
+def interbank_transfer(betrag, sender, empfaenger, bank_sender, bank_empfaenger, speed, schritt):
+    """Schritt 3 bis 7: Der eigentliche Transfer"""
+    s_id = bank_sender.split()[-1]
+    e_id = bank_empfaenger.split()[-1]
+    s_num = sender.split()[-1]
+    e_num = empfaenger.split()[-1]
+
+    try:
+        # Prüfung nur im ersten Schritt des Transfers
+        if schritt == 1:
+            guthaben = st.session_state.balances[sender]["Assets"][f"Bankguthaben bei {s_id}"]
+            reserven = st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"]
+
+            if betrag > guthaben:
+                st.session_state.logs.append(f"⚠️ {sender} hat zu wenig Guthaben!")
+                st.session_state.pending_steps = []
+                return False
+            if betrag > reserven:
+                st.session_state.logs.append(f"⚠️ {bank_sender} hat zu wenig Reserven für den Transfer!")
                 st.session_state.pending_steps = []
                 return False
 
-            # Die Sender-Bank leiht sich Reserven bei der ZB, um zahlungsfähig zu sein
-            st.session_state.balances["Zentralbank"]["Assets"][f"Forderung {bank_sender}"] += betrag
-            st.session_state.balances[bank_sender]["Liabilities"][f"Kredit bei ZB {s_id}"] += betrag
-            st.session_state.highlights = [ f"Forderung {bank_sender}",f"Kredit bei ZB {s_id}"]
-            st.session_state.logs.append(f"🏛️ ZB stellt {bank_sender} Reserven für den Transfer bereit.")
-
+        # Logik-Mapping: Schritt 1 hier entspricht deinem alten Schritt 3 usw.
+        if schritt == 1:  # Abbuchung Sender
+            st.session_state.highlights_plan = [f"Bankguthaben bei {s_id}", f"Einlage {sender}",f"Reserve {bank_sender}", f"Reserve bei ZB {s_id}"
+                                                ,f"Reserve {bank_empfaenger}", f"Reserve bei ZB {e_id}",f"Bankguthaben bei {e_id}", f"Einlage {empfaenger}"
+                                                ,f"Sachvermögen {s_num}", f"Sachvermögen {e_num}"]
         elif schritt == 2:
-
-            st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"] += betrag
-            st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_sender}"] += betrag
-
-            st.session_state.highlights = [f"Reserve bei ZB {s_id}",f"Reserve {bank_sender}"]
-
-        # --- SCHRITT 3: Abbuchung beim Sender & ZB-Umschichtung ---
-        elif schritt == 3:
             st.session_state.balances[sender]["Assets"][f"Bankguthaben bei {s_id}"] -= betrag
             st.session_state.balances[bank_sender]["Liabilities"][f"Einlage {sender}"] -= betrag
-            st.session_state.highlights = [f"Bankguthaben bei {s_id}" ,f"Einlage {sender}"]
-            st.session_state.logs.append(f"🏦 {bank_sender} bucht ab.")
+            st.session_state.highlights_action = [f"Bankguthaben bei {s_id}", f"Einlage {sender}"]
+            st.session_state.logs.append(f"🏦 {bank_sender} bucht bei {sender} ab.")
 
-        elif schritt == 4:
+        elif schritt == 3:  # Reserven bei Sender-Bank weg
             st.session_state.balances[bank_sender]["Assets"][f"Reserve bei ZB {s_id}"] -= betrag
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_sender}"] -= betrag
-            st.session_state.highlights = [f"Reserve {bank_sender}", f"Reserve bei ZB {s_id}" ]
-        elif schritt == 5:
+            st.session_state.highlights_action = [f"Reserve {bank_sender}", f"Reserve bei ZB {s_id}"]
+
+        elif schritt == 4:  # Reserven bei Empfänger-Bank dazu
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_empfaenger}"] += betrag
             st.session_state.balances[bank_empfaenger]["Assets"][f"Reserve bei ZB {e_id}"] += betrag
-            st.session_state.highlights = [ f"Reserve {bank_empfaenger}",f"Reserve bei ZB {e_id}"]
+            st.session_state.highlights_action = [f"Reserve {bank_empfaenger}", f"Reserve bei ZB {e_id}"]
             st.session_state.logs.append(f"🏦 ZB schichtet Reserven zu {bank_empfaenger} um.")
-        # --- SCHRITT 6: Gutschrift beim Empfänger ---
-        elif schritt == 6:
-            # 1. Die Empfänger-Bank erhält Reserven und verbucht neue Einlage
+
+        elif schritt == 5:  # Gutschrift Empfänger
             st.session_state.balances[bank_empfaenger]["Liabilities"][f"Einlage {empfaenger}"] += betrag
             st.session_state.balances[empfaenger]["Assets"][f"Bankguthaben bei {e_id}"] += betrag
-            st.session_state.highlights = [f"Bankguthaben bei {e_id}", f"Einlage {empfaenger}"]
-            st.session_state.logs.append(f"✅ {empfaenger} hat die Zahlung erhalten.")
+            st.session_state.highlights_action = [f"Bankguthaben bei {e_id}", f"Einlage {empfaenger}"]
+            st.session_state.logs.append(f"✅ {empfaenger} erhält Gutschrift.")
 
-        # --- SCHRITT 7: Realwirtschaftlicher Transfer (Waren/Sachvermögen) ---
-        elif schritt == 7:
-            # In diesem Intro-Modus simulieren wir den Tausch: Geld gegen Sachvermögen
-            # Der Empfänger gibt Sachvermögen ab, der Sender erhält es
+        elif schritt == 6:  # Waren/Sachwert
             st.session_state.balances[empfaenger]["Assets"][f"Sachvermögen {e_num}"] -= betrag
             st.session_state.balances[sender]["Assets"][f"Sachvermögen {s_num}"] += betrag
+            st.session_state.highlights_action = [f"Sachvermögen {s_num}", f"Sachvermögen {e_num}"]
+        elif schritt == 7:
+            st.session_state.highlights_plan = []
+            st.session_state.logs.append(f"📦 Sachvermögen übertragen.")
 
-            st.session_state.highlights = [f"Sachvermögen {s_num}", f"Sachvermögen {e_num}"]
-            st.session_state.logs.append(f"📦 Physisches Sachvermögen wurde von {empfaenger} an {sender} übertragen.")
-
-        return True
 
     except KeyError as e:
         st.error(f"Fehler: Das Konto {e} wurde nicht gefunden! Überprüfe die Initialisierung.")
@@ -702,27 +721,34 @@ def prozess_kredit_intro(betrag, interest_rate, firma, bank, speed, schritt):
         # --- FALL A: KREDITAUFNAHME (GELDSCHÖPFUNG) ---
         if betrag > 0:
             if schritt == 1:
+                st.session_state.highlights_plan = [asset_firma, liab_bank,asset_bank, liab_firma]
+            elif schritt == 2:
                 # Buchung bei der Firma (Aktiva hoch, Passiva bei Bank hoch)
                 st.session_state.balances[firma]["Assets"][asset_firma] += betrag
                 st.session_state.balances[bank]["Liabilities"][liab_bank] += betrag
-                st.session_state.highlights = [asset_firma, liab_bank]
+                st.session_state.highlights_action = [asset_firma, liab_bank]
                 st.session_state.logs.append(f"🏦 {bank}: Schöpft Giralgeld für {firma}.")
 
-            elif schritt == 2:
+            elif schritt == 3:
                 # Buchung bei der Bank (Forderung hoch, Verbindlichkeit Firma hoch)
                 st.session_state.balances[bank]["Assets"][asset_bank] += betrag
                 st.session_state.balances[firma]["Liabilities"][liab_firma] += betrag
-                st.session_state.highlights = [asset_bank, liab_firma]
+                st.session_state.highlights_action = [asset_bank, liab_firma]
+
+            elif schritt ==4:
+                st.session_state.highlights_plan = []
                 st.session_state.logs.append(f"📝 {firma}: Kreditvertrag über {betrag}€ unterzeichnet.")
 
         # --- FALL B: TILGUNG & ZINSEN ---
-        # --- INNERHALB VON FALL B: TILGUNG & ZINSEN ---
         elif betrag < 0:
             kredit_anteil = abs(betrag)
             zins_anteil = round(kredit_anteil * interest_rate, 2)
             gesamt_abfluss = kredit_anteil + zins_anteil
 
             if schritt == 1:
+                st.session_state.highlights_plan = [asset_firma, liab_bank,asset_bank, liab_firma,ek_name_firma,ek_name_bank]
+
+            if schritt == 2:
                 # 1. Bankguthaben sinkt um Tilgung + Zins
                 st.session_state.balances[firma]["Assets"][asset_firma] -= gesamt_abfluss
 
@@ -734,9 +760,9 @@ def prozess_kredit_intro(betrag, interest_rate, firma, bank, speed, schritt):
                 st.session_state.balances[firma]["Liabilities"][ek_name_firma] -= zins_anteil
 
                 # Highlights für die Bilanz setzen
-                st.session_state.highlights = [asset_firma, liab_firma, ek_name_firma]
+                st.session_state.highlights_action = [asset_firma, liab_firma, ek_name_firma]
                 st.session_state.logs.append(f"📉 {firma}: Zahlt {kredit_anteil}€ Tilgung und {zins_anteil}€ Zinsen.")
-            elif schritt == 2:
+            elif schritt == 3:
                 # Bank erhält: Kredit-Forderung weg, Einlagen-Verbindlichkeit weg, EK steigt (Zinsertrag)
                 st.session_state.balances[bank]["Assets"][asset_bank] -= kredit_anteil
                 st.session_state.balances[bank]["Liabilities"][liab_bank] -= gesamt_abfluss
@@ -744,7 +770,9 @@ def prozess_kredit_intro(betrag, interest_rate, firma, bank, speed, schritt):
                 if ek_name_bank in st.session_state.balances[bank]["Liabilities"]:
                     st.session_state.balances[bank]["Liabilities"][ek_name_bank] += zins_anteil
 
-                st.session_state.highlights = [asset_bank, liab_bank]
+                st.session_state.highlights_action = [asset_bank, liab_bank,ek_name_bank]
+            elif schritt == 4:
+                st.session_state.highlights_plan = []
                 st.session_state.logs.append(f"🏛️ {bank}: Zinsertrag verbucht und Geldmenge reduziert.")
 
         return True
