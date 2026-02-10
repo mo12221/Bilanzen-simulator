@@ -25,12 +25,14 @@ def prozess_kredit(betrag, interest_rate, firma, bank, speed, schritt):
     try:
         # --- FALL A: KREDITAUFNAHME (GELDSCHÖPFUNG) ---
         if betrag > 0:
+            if schritt == 0:
+                st.session_state.highlights_plan = [asset_firma,liab_bank,asset_bank,liab_firma]
             if schritt == 1:
                 # Schritt 1: Firma kriegt Guthaben, Bank kriegt Verbindlichkeit (Einlage)
                 st.session_state.balances[firma]["Assets"][asset_firma] += betrag
                 st.session_state.balances[bank]["Liabilities"][liab_bank] += betrag
 
-                st.session_state.highlights = [asset_firma, liab_bank]
+                st.session_state.highlights_green = [asset_firma, liab_bank]
                 st.session_state.logs.append(f"🏦 {bank}: Schöpft Giralgeld für {firma}.")
 
             elif schritt == 2:
@@ -38,7 +40,9 @@ def prozess_kredit(betrag, interest_rate, firma, bank, speed, schritt):
                 st.session_state.balances[bank]["Assets"][asset_bank] += betrag
                 st.session_state.balances[firma]["Liabilities"][liab_firma] += betrag
 
-                st.session_state.highlights = [asset_bank, liab_firma]
+                st.session_state.highlights_green = [asset_bank, liab_firma]
+            elif schritt == 3:
+                st.session_state.highlights_plan = []
                 st.session_state.logs.append(f"📝 {firma}: Kreditvertrag über {betrag}€ aktiviert.")
 
         # --- FALL B: TILGUNG & ZINSEN ---
@@ -46,29 +50,24 @@ def prozess_kredit(betrag, interest_rate, firma, bank, speed, schritt):
             kredit_anteil = abs(betrag)
             zins_anteil = round(kredit_anteil * interest_rate, 2)
             gesamt_abfluss = kredit_anteil + zins_anteil
-
+            if schritt == 0:
+                st.session_state.highlights_plan = [asset_firma,liab_firma,ek_firma,asset_bank,liab_bank,ek_bank]
             if schritt == 1:
                 # Firma zahlt: Guthaben sinkt um Gesamt, Kredit sinkt um Tilgung, EK sinkt um Zins
                 st.session_state.balances[firma]["Assets"][asset_firma] -= gesamt_abfluss
                 st.session_state.balances[firma]["Liabilities"][liab_firma] -= kredit_anteil
-
-                if ek_firma:
-                    st.session_state.balances[firma]["Liabilities"][ek_firma] -= zins_anteil
-
-                # Wir highlighten alle drei betroffenen Konten
-                st.session_state.highlights = [asset_firma, liab_firma, ek_firma] if ek_firma else [asset_firma,
-                                                                                                    liab_firma]
+                st.session_state.balances[firma]["Liabilities"][ek_firma] -= zins_anteil
+                st.session_state.highlights_red = [asset_firma, liab_firma, ek_firma]
                 st.session_state.logs.append(f"📉 {firma}: Tilgung {kredit_anteil}€ + Zins {zins_anteil}€.")
 
             elif schritt == 2:
                 # Bank erhält: Kredit-Forderung sinkt, Einlagen-Verbindlichkeit sinkt, EK (Gewinn) steigt
                 st.session_state.balances[bank]["Assets"][asset_bank] -= kredit_anteil
                 st.session_state.balances[bank]["Liabilities"][liab_bank] -= gesamt_abfluss
-
                 if ek_bank in st.session_state.balances[bank]["Liabilities"]:
                     st.session_state.balances[bank]["Liabilities"][ek_bank] += zins_anteil
 
-                st.session_state.highlights = [asset_bank, liab_bank, ek_bank]
+                st.session_state.highlights_green = [asset_bank, liab_bank, ek_bank]
                 st.session_state.logs.append(f"🏛️ {bank}: Zinsertrag verbucht.")
 
         return True
@@ -85,57 +84,69 @@ def lohnzahlung_prozess(betrag, firma, bank_firma, speed, schritt):
 
     try:
         # --- SCHRITT 1: ZB-Refinanzierung ---
-        if schritt == 1:
+        if schritt == 0:
             guthaben = st.session_state.balances[firma]["Assets"][f"Bankguthaben bei {bank_buchstabe}"]
             if betrag > guthaben:
                 st.session_state.logs.append(f"⚠️ Nicht genügend Guthaben bei {firma}!")
                 st.session_state.pending_steps = []
                 return False
+        elif schritt == 1:
+            st.session_state.highlights_plan = [f"Forderung {bank_firma}",f"Reserve {bank_firma}",f"Reserve bei ZB {bank_buchstabe}",
+            f"Kredit bei ZB {bank_buchstabe}",f"Einlage {firma}",f"Bankguthaben bei {bank_buchstabe}", f"Eigenkapital {firma}"
+                , f"Reserve Bank C",f"Reserve bei ZB {bank_buchstabe}",f"Reserve {bank_firma}",
+            "Bankguthaben bei C", "Einlage Beschäftigte", "Eigenkapital Beschäftigte"
+            ,"Reserve bei ZB C", "Arbeitskraft"]
 
+        elif schritt == 2:
             st.session_state.balances["Zentralbank"]["Assets"][f"Forderung {bank_firma}"] += betrag
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_firma}"] += betrag
             st.session_state.balances[bank_firma]["Assets"][f"Reserve bei ZB {bank_buchstabe}"] += betrag
             st.session_state.balances[bank_firma]["Liabilities"][f"Kredit bei ZB {bank_buchstabe}"] += betrag
 
             # Highlights für ZB-Refinanzierung
-            st.session_state.highlights = [f"Reserve bei ZB {bank_buchstabe}", f"Kredit bei ZB {bank_buchstabe}", f"Forderung {bank_firma}", f"Reserve {bank_firma}"]
+            st.session_state.highlights_green = [f"Reserve bei ZB {bank_buchstabe}", f"Kredit bei ZB {bank_buchstabe}", f"Forderung {bank_firma}", f"Reserve {bank_firma}"]
             st.session_state.logs.append(f"🏛️ ZB stellt {bank_firma} Reserven für die Lohnzahlung bereit.")
 
         # --- SCHRITT 2: Abbuchung & ZB-Umschichtung ---
-        elif schritt == 2:
+        elif schritt == 3:
             st.session_state.balances[firma]["Assets"][f"Bankguthaben bei {bank_buchstabe}"] -= betrag
-            st.session_state.balances[firma]["Liabilities"][f"Eigenkapital {firma}"] -= betrag
-
-            st.session_state.balances[bank_firma]["Assets"][f"Reserve bei ZB {bank_buchstabe}"] -= betrag
             st.session_state.balances[bank_firma]["Liabilities"][f"Einlage {firma}"] -= betrag
+            st.session_state.highlights_red = [f"Einlage {firma}",f"Bankguthaben bei {bank_buchstabe}"]
 
+        elif schritt == 4:
+            st.session_state.balances[bank_firma]["Assets"][f"Reserve bei ZB {bank_buchstabe}"] -= betrag
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_firma}"] -= betrag
-            st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank C"] += betrag
+            st.session_state.highlights_red = [f"Reserve bei ZB {bank_buchstabe}",f"Reserve {bank_firma}"]
 
+        elif schritt == 5:
+            st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank C"] += betrag
+            st.session_state.balances["Bank C"]["Assets"]["Reserve bei ZB C"] += betrag
             # Highlights für den Abfluss bei Bank A/B
-            st.session_state.highlights = [f"Einlage {firma}",f"Bankguthaben bei {bank_buchstabe}", f"Eigenkapital {firma}", f"Reserve Bank C",f"Reserve bei ZB {bank_buchstabe}",f"Reserve {bank_firma}"]
+            st.session_state.highlights_green = [f"Reserve Bank C","Reserve bei ZB C"]
             st.session_state.logs.append(f"🏦 {bank_firma} bucht Lohn ab und ZB schiebt Reserven zu Bank C.")
 
         # --- SCHRITT 3: Gutschrift bei Beschäftigte (Bank C) ---
-        elif schritt == 3:
-            st.session_state.balances["Bank C"]["Assets"]["Reserve bei ZB C"] += betrag
+        elif schritt == 6:
             st.session_state.balances["Bank C"]["Liabilities"]["Einlage Beschäftigte"] += betrag
             st.session_state.balances["Beschäftigte"]["Assets"]["Bankguthaben bei C"] += betrag
-            st.session_state.balances["Beschäftigte"]["Liabilities"]["Eigenkapital Beschäftigte"] += betrag
 
             # Highlights bei den Empfängern
-            st.session_state.highlights = ["Bankguthaben bei C", "Einlage Beschäftigte", "Eigenkapital Beschäftigte","Reserve bei ZB C"]
+            st.session_state.highlights_green = ["Bankguthaben bei C", "Einlage Beschäftigte"]
             st.session_state.logs.append(f"👷 Bank C schreibt den Lohn den Beschäftigte gut.")
 
         # --- SCHRITT 4: Realwirtschaft (Arbeitskraft-Transfer) ---
-        elif schritt == 4:
+        elif schritt == 7:
             # Überprüfe, ob die Beträge ankommen
+            st.session_state.balances["Beschäftigte"]["Liabilities"]["Eigenkapital Beschäftigte"] += betrag
+            st.session_state.balances[firma]["Liabilities"][f"Eigenkapital {firma}"] -= betrag
+
             st.session_state.value_balances["Beschäftigte"]["Arbeitskraft"] -= betrag
             st.session_state.value_balances[firma]["Arbeitskraft"] += betrag
 
+            st.session_state.highlights_red = [f"Eigenkapital {firma}"]
+            st.session_state.highlights_green = [f"Eigenkapital Beschäftigte"]
+
             # WICHTIG: Setze die Highlights auf "Arbeitskraft",
-            # damit die Zeile in den Real-Bilanzen unter den Tabellen aufblinkt!
-            st.session_state.highlights = ["Arbeitskraft"]
             st.session_state.logs.append(f"✅ Arbeitskraft wurde physisch an {firma} übertragen.")
         return True
 
@@ -157,6 +168,8 @@ def produktion_prozess(typ, k_gesamt, v_quote, profit_rate, schritt):
     c_kapital = round(k_gesamt * (1 - v_quote), 2)
     ek_key = f"Eigenkapital {typ}"
     try:
+        if schritt == 0:
+            st.session_state.highlights_plan = [ek_key,"Arbeitskraft", f"Sachvermögen {typ}"]
         if schritt == 1:
             vorrat_v = st.session_state.value_balances[typ]["Arbeitskraft"]
             vorrat_k = st.session_state.value_balances[typ]["Sachvermögen"]
@@ -173,7 +186,7 @@ def produktion_prozess(typ, k_gesamt, v_quote, profit_rate, schritt):
             st.session_state.balances[typ]["Assets"][f"Sachvermögen {typ}"] -= c_kapital
             st.session_state.balances[typ]["Liabilities"][f"Eigenkapital {typ}"] -= c_kapital
 
-            st.session_state.highlights = ["Arbeitskraft", f"Sachvermögen {typ}"]
+            st.session_state.highlights_red = [f"Eigenkapital {typ}", f"Sachvermögen {typ}"]
             st.session_state.logs.append(f"⚙️ {typ}: Produktion mit Quote {int(v_quote * 100)}% Arbeit startet.")
 
         elif schritt == 2:
@@ -192,7 +205,7 @@ def produktion_prozess(typ, k_gesamt, v_quote, profit_rate, schritt):
             st.session_state.balances[typ]["Assets"][target] += produkt_wert
             st.session_state.balances[typ]["Liabilities"][ek_key] += produkt_wert
 
-            st.session_state.highlights = [target, ek_key]
+            st.session_state.highlights_green = [target, ek_key]
             st.session_state.logs.append(f"📦 {typ}: Output +{produkt_wert}€ (v: {v_kapital}, c: {c_kapital})")
 
         return True
@@ -206,7 +219,7 @@ def kauf_invest_prozess(betrag, schritt):
     # IDs vorbereiten
     # Käufer: UK (Bank A), Verkäufer: UI (Bank B)
     try:
-        if schritt == 1:
+        if schritt == 0:
             # Validierung
             guthaben_uk = st.session_state.balances["UK"]["Assets"]["Bankguthaben bei A"]
             vorrat_ui = st.session_state.value_balances["UI"]["Sachvermögen"]
@@ -219,41 +232,47 @@ def kauf_invest_prozess(betrag, schritt):
                 st.session_state.logs.append("⚠️ UI hat nicht genug Investitionsgüter auf Lager!")
                 st.session_state.pending_steps = []
                 return False
-
+        elif schritt == 1:
+            st.session_state.highlights_plan = ["Reserve bei ZB A", "Forderung Bank A", "Kredit bei ZB A",
+                                                "Reserve Bank A",
+                                                "Bankguthaben bei A", "Einlage UK", "Reserve Bank B",
+                                                "Bankguthaben bei B", "Einlage UI", "Reserve bei ZB B",
+                                                "Sachvermögen UI", "Sachvermögen UK"]
+        elif schritt ==2:
             # Schritt 1: Refinanzierung Bank A (Käuferbank braucht Reserven)
             st.session_state.balances["Zentralbank"]["Assets"]["Forderung Bank A"] += betrag
             st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank A"] += betrag
             st.session_state.balances["Bank A"]["Assets"]["Reserve bei ZB A"] += betrag
             st.session_state.balances["Bank A"]["Liabilities"]["Kredit bei ZB A"] += betrag
 
-            st.session_state.highlights = ["Reserve bei ZB A", "Forderung Bank A", "Kredit bei ZB A", "Reserve Bank A"]
+            st.session_state.highlights_green = ["Reserve bei ZB A", "Forderung Bank A", "Kredit bei ZB A", "Reserve Bank A"]
             st.session_state.logs.append("🏛️ ZB stellt Bank A Reserven für den Kauf bereit.")
 
-        elif schritt == 2:
+        elif schritt == 3:
             # Schritt 2: Abbuchung UK & ZB-Umschichtung zu Bank B
             st.session_state.balances["UK"]["Assets"]["Bankguthaben bei A"] -= betrag
             st.session_state.balances["Bank A"]["Liabilities"]["Einlage UK"] -= betrag
-            st.session_state.balances["Bank A"]["Assets"]["Reserve bei ZB A"] -= betrag
-
-            st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank A"] -= betrag
-            st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank B"] += betrag
-
-            st.session_state.highlights = ["Bankguthaben bei A", "Einlage UK", "Reserve Bank B"]
+            st.session_state.highlights_red = ["Bankguthaben bei A", "Einlage UK"]
             st.session_state.logs.append("🏦 Bank A bucht ab, ZB leitet Reserven an Bank B weiter.")
 
-        elif schritt == 3:
-            # Schritt 3: Gutschrift bei UI (Bank B)
+        elif schritt == 4:
+            st.session_state.balances["Bank A"]["Assets"]["Reserve bei ZB A"] -= betrag
+            st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank A"] -= betrag
+            st.session_state.highlights_red = ["Reserve bei ZB A","Reserve Bank A"]
+
+        elif schritt == 5:
+            st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank B"] += betrag
             st.session_state.balances["Bank B"]["Assets"]["Reserve bei ZB B"] += betrag
+            st.session_state.highlights_green = ["Reserve Bank B","Reserve bei ZB B"]
+
+        elif schritt == 6:
+            # Schritt 3: Gutschrift bei UI (Bank B)
             st.session_state.balances["Bank B"]["Liabilities"]["Einlage UI"] += betrag
             st.session_state.balances["UI"]["Assets"]["Bankguthaben bei B"] += betrag
-
-            # Da UI etwas verkauft, ist der Erlös (Umsatz) gewinnwirksam
-            # (In der einfachsten Form steigt das EK, später mindert der Warenabgang das EK wieder)
-
-            st.session_state.highlights = ["Bankguthaben bei B", "Einlage UI", "Reserve bei ZB B"]
+            st.session_state.highlights_green = ["Bankguthaben bei B", "Einlage UI"]
             st.session_state.logs.append("✅ UI hat die Zahlung erhalten.")
 
-        elif schritt == 4:
+        elif schritt == 7:
             # Schritt 4: Realwirtschaftlicher Transfer
             # UI verliert Sachvermögen (Verkauf), UK gewinnt Sachvermögen (Investition)
             st.session_state.value_balances["UI"]["Sachvermögen"] -= betrag
@@ -266,7 +285,9 @@ def kauf_invest_prozess(betrag, schritt):
             if "BIP_aktuell" in st.session_state:
                 st.session_state.BIP_aktuell += betrag
 
-            st.session_state.highlights = ["Sachvermögen UI", "Sachvermögen UK"]
+            st.session_state.highlights_green = ["Sachvermögen UK"]
+            st.session_state.highlights_red = ["Sachvermögen UI"]
+
             st.session_state.logs.append(f"📦 Investitionsgüter ({betrag}€) von UI an UK übertragen.")
 
         return True
@@ -278,7 +299,7 @@ def kauf_invest_prozess(betrag, schritt):
 
 def kauf_konsum_prozess(betrag, schritt,r,vk):
     try:
-        if schritt == 1:
+        if schritt == 0:
             # Validierung: Beschäftigte zu UK
             guthaben = st.session_state.balances["Beschäftigte"]["Assets"]["Bankguthaben bei C"]
             waren = st.session_state.value_balances["UK"]["Warenbestand"]
@@ -291,45 +312,55 @@ def kauf_konsum_prozess(betrag, schritt,r,vk):
                 st.session_state.logs.append("⚠️ UK hat nicht genug Lebensmittel auf Lager!")
                 st.session_state.pending_steps = []
                 return False
-
+        elif schritt == 1:
+            st.session_state.highlights_plan = ["Reserve bei ZB C", "Reserve Bank C","Kredit bei ZB C","Forderung Bank C",
+                                                "Bankguthaben bei C", "Reserve Bank A", "Reserve Bank C",
+                                                 "Einlage Beschäftigte", "Reserve bei ZB C",
+                                                "Bankguthaben bei A", "Einlage UK","Reserve bei ZB A",
+                                                "Warenbestand UK", "Gebrauchsvermögen B"]
+        elif schritt == 2:
             # Interbanken-Refinanzierung (Bank C braucht Reserven)
             st.session_state.balances["Zentralbank"]["Assets"]["Forderung Bank C"] += betrag
             st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank C"] += betrag
             st.session_state.balances["Bank C"]["Assets"]["Reserve bei ZB C"] += betrag
             st.session_state.balances["Bank C"]["Liabilities"]["Kredit bei ZB C"] += betrag
 
-            st.session_state.highlights = ["Reserve bei ZB C", "Reserve Bank C","Kredit bei ZB C","Forderung Bank C"]
-            st.session_state.logs.append("🏛️ Bank C besorgt sich Reserven für den Konsum.")
+            st.session_state.highlights_green = ["Reserve bei ZB C", "Reserve Bank C","Kredit bei ZB C","Forderung Bank C"]
+            st.session_state.logs.append("🏛️ Bank C besorgt sich Reserven für den Transfer.")
 
-        elif schritt == 2:
+        elif schritt == 3:
             # Abbuchung Beschäftigte & ZB-Transfer zu Bank A
             st.session_state.balances["Beschäftigte"]["Assets"]["Bankguthaben bei C"] -= betrag
             st.session_state.balances["Bank C"]["Liabilities"]["Einlage Beschäftigte"] -= betrag
+            st.session_state.highlights_red = ["Bankguthaben bei C","Einlage Beschäftigte"]
+
+        elif schritt == 4:
             st.session_state.balances["Bank C"]["Assets"]["Reserve bei ZB C"] -= betrag
-
             st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank C"] -= betrag
+            st.session_state.highlights_red = ["Reserve bei ZB C","Reserve Bank C"]
+
+        elif schritt == 5:
             st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank A"] += betrag
-
-            st.session_state.highlights = ["Bankguthaben bei C", "Reserve Bank A","Reserve Bank C","Einlage Beschäftigte","Reserve bei ZB C"]
-            st.session_state.logs.append("🏦 Geld fließt von Bank C zu Bank A.")
-
-        elif schritt == 3:
-            # Gutschrift bei UK
             st.session_state.balances["Bank A"]["Assets"]["Reserve bei ZB A"] += betrag
+            st.session_state.highlights_green = ["Reserve Bank A","Reserve bei ZB A"]
+        elif schritt == 6:
+            # Gutschrift bei UK
             st.session_state.balances["Bank A"]["Liabilities"]["Einlage UK"] += betrag
             st.session_state.balances["UK"]["Assets"]["Bankguthaben bei A"] += betrag
 
-            st.session_state.highlights = ["Bankguthaben bei A", "Einlage UK","Reserve bei ZB A"]
+            st.session_state.highlights_green = ["Bankguthaben bei A", "Einlage UK"]
             st.session_state.logs.append("💰 UK verbucht Verkaufserlös.")
 
-        elif schritt == 4:
+        elif schritt == 7:
             # Warenübergabe
             st.session_state.value_balances["UK"]["Warenbestand"] -= betrag
             st.session_state.balances["UK"]["Assets"]["Warenbestand UK"] -= betrag
             st.session_state.balances["Beschäftigte"]["Assets"]["Gebrauchsvermögen B"] += betrag
             st.session_state.value_balances["Beschäftigte"]["Gebrauchsvermögen B"] += betrag
 
-            st.session_state.highlights = ["Warenbestand UK", "Gebrauchsvermögen B"]
+            st.session_state.highlights_green = ["Gebrauchsvermögen B"]
+            st.session_state.highlights_red = ["Warenbestand UK"]
+
             st.session_state.logs.append("🍎 Lebensmittel an Beschäftigte geliefert.")
             st.session_state.current_C_roh += betrag
             C_bereinigt = betrag * (1 - (1 / (1 + r)) * (1 - vk))
@@ -347,81 +378,97 @@ def dividende_prozess(typ, betrag, schritt):
     Logik: Bank A/B schütten an Bank C aus. Bank C schüttet intern aus.
     """
     try:
-        # --- FALL 1: UNTERNEHMEN (Bleibt wie gehabt) ---
+        # --- FALL 1: UNTERNEHMEN---
         if typ in ["UK", "UI"]:
             bank_id = "A" if typ == "UK" else "B"
             bank_name = f"Bank {bank_id}"
-            if schritt == 1:
+            if schritt == 0:
                 if st.session_state.balances[typ]["Assets"][f"Bankguthaben bei {bank_id}"] < betrag:
                     st.session_state.logs.append(f"⚠️ {typ} hat nicht genug Guthaben!")
                     st.session_state.pending_steps = []
                     return False
+            elif schritt == 1:
+                st.session_state.highlights_plan = [f"Bankguthaben bei {bank_id}", f"Eigenkapital {typ}"
+                    , f"Guthaben bei {bank_id}", f"Einlage Unternehmer {typ}", f"Einlage {typ}"
+                    , f"Eigenk. Eigentümer {typ}"]
+            elif schritt == 2:
                 st.session_state.balances[typ]["Assets"][f"Bankguthaben bei {bank_id}"] -= betrag
                 st.session_state.balances[typ]["Liabilities"][f"Eigenkapital {typ}"] -= betrag
-                st.session_state.highlights = [f"Bankguthaben bei {bank_id}", f"Eigenkapital {typ}"]
-            elif schritt == 2:
+                st.session_state.highlights_red = [f"Bankguthaben bei {bank_id}", f"Eigenkapital {typ}"]
+            elif schritt == 3:
                 st.session_state.balances[bank_name]["Liabilities"][f"Einlage {typ}"] -= betrag
                 st.session_state.balances[bank_name]["Liabilities"][f"Einlage Unternehmer {typ}"] += betrag
                 st.session_state.balances["Eigentümer"]["Assets"][f"Guthaben bei {bank_id}"] += betrag
                 st.session_state.balances["Eigentümer"]["Liabilities"][f"Eigenk. Eigentümer {typ}"] += betrag
-
-                st.session_state.highlights = [f"Guthaben bei {bank_id}",f"Einlage Unternehmer {typ}",f"Einlage {typ}"
-                    ,f"Eigenk. Eigentümer {typ}"]
+                st.session_state.highlights_green = [f"Guthaben bei {bank_id}",f"Einlage Unternehmer {typ}",f"Eigenk. Eigentümer {typ}"]
+                st.session_state.highlights_red = [f"Einlage {typ}"]
 
         # --- FALL 2: BANKEN A & B (Überweisung an Bank C) ---
         elif typ in ["Bank A", "Bank B"]:
             bank_id = typ.split()[-1]  # "A" oder "B"
             ek_name = f"Eigenkapital {bank_id}"
-
-            if schritt == 1:
+            if schritt == 0:
                 if st.session_state.balances[typ]["Liabilities"][ek_name] < betrag:
                     st.session_state.logs.append(f"⚠️ {typ} hat zu wenig EK!")
                     st.session_state.pending_steps = []
                     return False
-
+            elif schritt == 1:
+                st.session_state.highlights_plan = []
+            elif schritt == 2:
                 # Bank A/B mindert EK und besorgt sich ZB-Reserven für den Transfer zu Bank C
-                st.session_state.balances[typ]["Liabilities"][ek_name] -= betrag
                 st.session_state.balances["Zentralbank"]["Assets"][f"Forderung {typ}"] += betrag
                 st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {typ}"] += betrag
                 st.session_state.balances[typ]["Assets"][f"Reserve bei ZB {bank_id}"] += betrag
                 st.session_state.balances[typ]["Liabilities"][f"Kredit bei ZB {bank_id}"] += betrag
 
-                st.session_state.highlights = [ek_name, f"Reserve bei ZB {bank_id}",f"Forderung {typ}",f"Reserve bei ZB {bank_id}",f"Kredit bei ZB {bank_id}"]
-                st.session_state.logs.append(f"🏛️ {typ} deklariert Dividende und besorgt Reserven.")
+                st.session_state.highlights_green = [f"Reserve bei ZB {bank_id}",f"Forderung {typ}",f"Reserve bei ZB {bank_id}",f"Kredit bei ZB {bank_id}"]
+                st.session_state.logs.append(f"🏛️ {typ} besorgt Reserven.")
 
-            elif schritt == 2:
+            elif schritt == 3:
                 # Transfer der Reserven von Bank A/B zu Bank C bei der ZB
                 st.session_state.balances[typ]["Assets"][f"Reserve bei ZB {bank_id}"] -= betrag
                 st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {typ}"] -= betrag
+                st.session_state.highlights_red = [f"Reserve {typ}",f"Reserve bei ZB {bank_id}"]
+
+            elif schritt == 4:
                 st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank C"] += betrag
-
-                # Gutschrift bei Bank C für den Bankbesitzer
                 st.session_state.balances["Bank C"]["Assets"]["Reserve bei ZB C"] += betrag
+                st.session_state.highlights_green = [f"Reserve C", f"Reserve bei ZB C"]
+            elif schritt == 5:
                 st.session_state.balances["Bank C"]["Liabilities"]["Einlage Bankbesitzer"] += betrag
-
-                # Update Eigentümer
                 st.session_state.balances["Eigentümer"]["Assets"]["Guthaben bei C"] += betrag
+                st.session_state.highlights_green = ["Guthaben bei C","Einlage Bankbesitzer"]
+            elif schritt == 6:
+                st.session_state.balances[typ]["Liabilities"][ek_name] -= betrag
                 st.session_state.balances["Eigentümer"]["Liabilities"]["Eigenk. Bankenbesitzer"] += betrag
+                st.session_state.highlights_green = ["Eigenk. Bankenbesitzer"]
+                st.session_state.highlights_red = [ek_name]
 
-                st.session_state.highlights = ["Reserve Bank C", "Einlage Bankbesitzer", "Guthaben bei C","Eigenk. Bankenbesitzer","Reserve Bank C",f"Reserve {typ}",f"Reserve bei ZB {bank_id}"]
                 st.session_state.logs.append(f"💸 Dividende von {typ} floss über die ZB an den Besitzer bei Bank C.")
 
         # --- FALL 3: BANK C (Interne Ausschüttung) ---
         elif typ == "Bank C":
-            if schritt == 1:
+            if schritt == 0:
                 if st.session_state.balances["Bank C"]["Liabilities"]["Eigenkapital C"] < betrag:
                     st.session_state.logs.append("⚠️ Bank C hat zu wenig EK!")
                     st.session_state.pending_steps = []
                     return False
-
+            elif schritt == 1:
+                st.session_state.highlights_plan = ["Eigenkapital C","Einlage Bankbesitzer", "Guthaben bei C","Eigenk. Bankenbesitzer"]
+            elif schritt == 2:
                 # Interner Passivtausch: EK C -> Einlage Bankbesitzer
                 st.session_state.balances["Bank C"]["Liabilities"]["Eigenkapital C"] -= betrag
-                st.session_state.balances["Bank C"]["Liabilities"]["Einlage Bankbesitzer"] += betrag
+                st.session_state.highlights_red = ["Eigenkapital C"]
 
+            elif schritt ==3:
+                st.session_state.balances["Bank C"]["Liabilities"]["Einlage Bankbesitzer"] += betrag
                 st.session_state.balances["Eigentümer"]["Assets"]["Guthaben bei C"] += betrag
+                st.session_state.highlights_green = ["Einlage Bankbesitzer", "Guthaben bei C"]
+
+            elif schritt ==4:
                 st.session_state.balances["Eigentümer"]["Liabilities"]["Eigenk. Bankenbesitzer"] += betrag
 
-                st.session_state.highlights = ["Eigenkapital C", "Einlage Bankbesitzer", "Guthaben bei C","Eigenk. Bankenbesitzer"]
+                st.session_state.highlights_green = ["Eigenk. Bankenbesitzer"]
                 st.session_state.logs.append("🏛️ Bank C hat intern Dividende an den Besitzer ausgeschüttet.")
 
         return True
@@ -441,8 +488,7 @@ def kauf_eigentuemer_prozess(betrag, von_bank_id, schritt,r,vk):
             einlage_key_bank = "Einlage Unternehmer UI"
         else:  # Bank C
             einlage_key_bank = "Einlage Bankbesitzer"
-
-        if schritt == 1:
+        if schritt == 0:
             guthaben = st.session_state.balances["Eigentümer"]["Assets"][f"Guthaben bei {von_bank_id}"]
             waren = st.session_state.value_balances["UK"]["Warenbestand"]
 
@@ -454,53 +500,67 @@ def kauf_eigentuemer_prozess(betrag, von_bank_id, schritt,r,vk):
                 st.session_state.logs.append("⚠️ UK hat nicht genug Lebensmittel auf Lager!")
                 st.session_state.pending_steps = []
                 return False
-
+        if schritt == 1:
+            if von_bank_id != "A":
+                st.session_state.highlights_plan = [f"Reserve bei ZB {von_bank_id}", f"Forderung {bank_name_von}"
+                    ,f"Reserve {bank_name_von}",f"Kredit bei ZB {von_bank_id}",f"Guthaben bei {von_bank_id}",einlage_key_bank,
+                                                    f"Reserve bei ZB {von_bank_id}",f"Reserve {bank_name_von}",
+                                                    "Reserve Bank A", "Reserve bei ZB A","Einlage UK",
+                                                    "Gebrauchsvermögen E","Warenbestand UK","Bankguthaben bei A"]
+            else:
+                st.session_state.highlights_plan = [f"Guthaben bei {von_bank_id}",einlage_key_bank,
+                                                    "Einlage UK","Bankguthaben bei A","Gebrauchsvermögen E","Warenbestand UK"]
+        elif schritt == 2:
             if von_bank_id != "A":
                 st.session_state.balances["Zentralbank"]["Assets"][f"Forderung {bank_name_von}"] += betrag
                 st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_name_von}"] += betrag
                 st.session_state.balances[bank_name_von]["Assets"][f"Reserve bei ZB {von_bank_id}"] += betrag
                 st.session_state.balances[bank_name_von]["Liabilities"][f"Kredit bei ZB {von_bank_id}"] += betrag
-                st.session_state.highlights = [f"Reserve bei ZB {von_bank_id}", f"Forderung {bank_name_von}"]
+                st.session_state.highlights_green = [f"Reserve bei ZB {von_bank_id}", f"Forderung {bank_name_von}"
+                    ,f"Reserve {bank_name_von}",f"Kredit bei ZB {von_bank_id}"]
                 st.session_state.logs.append(f"🏛️ ZB stellt {bank_name_von} Reserven bereit.")
             else:
                 st.session_state.logs.append(f"🛒 Interner Kauf: Eigentümer zahlt innerhalb von Bank A.")
 
-        elif schritt == 2:
+        elif schritt == 3:
             st.session_state.balances["Eigentümer"]["Assets"][f"Guthaben bei {von_bank_id}"] -= betrag
             st.session_state.balances[bank_name_von]["Liabilities"][einlage_key_bank] -= betrag
-
+            st.session_state.highlights_red = [f"Guthaben bei {von_bank_id}",einlage_key_bank]
+        elif schritt == 4:
             if von_bank_id != "A":
                 st.session_state.balances[bank_name_von]["Assets"][f"Reserve bei ZB {von_bank_id}"] -= betrag
                 st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_name_von}"] -= betrag
-                st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank A"] += betrag
-                st.session_state.highlights = ["Reserve Bank A", einlage_key_bank]
+                st.session_state.highlights_red = [f"Reserve bei ZB {von_bank_id}",f"Reserve {bank_name_von}"]
                 st.session_state.logs.append(f"🏦 Reserven fließen von {bank_name_von} zu Bank A.")
             else:
-                st.session_state.highlights = [einlage_key_bank]
+                None
 
-        elif schritt == 3:
+        elif schritt == 5:
             # --- DER FIX: Reserven nur erhöhen, wenn sie von einer ANDEREN Bank kommen ---
             if von_bank_id != "A":
+                st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank A"] += betrag
                 st.session_state.balances["Bank A"]["Assets"]["Reserve bei ZB A"] += betrag
-                st.session_state.highlights = ["Bankguthaben bei A", "Einlage UK", "Reserve bei ZB A"]
+                st.session_state.highlights_green = ["Reserve Bank A", "Reserve bei ZB A"]
             else:
                 # Interner Transfer: Keine ZB-Reserven involviert!
-                st.session_state.highlights = ["Bankguthaben bei A", "Einlage UK"]
-
+                None
+        elif schritt == 6:
             st.session_state.balances["Bank A"]["Liabilities"]["Einlage UK"] += betrag
             st.session_state.balances["UK"]["Assets"]["Bankguthaben bei A"] += betrag
+            st.session_state.highlights_green = ["Einlage UK","Bankguthaben bei A"]
             st.session_state.logs.append("💰 UK erhält Verkaufserlös bei Bank A.")
 
-        elif schritt == 4:
+        elif schritt == 7:
             st.session_state.value_balances["UK"]["Warenbestand"] -= betrag
             st.session_state.balances["UK"]["Assets"]["Warenbestand UK"] -= betrag
             st.session_state.balances["Eigentümer"]["Assets"]["Gebrauchsvermögen E"] += betrag
 
             # Hier vorsicht mit dem Key-Namen in value_balances:
-            if "Gebrauchsvermögen E" in st.session_state.value_balances["Eigentümer"]:
-                st.session_state.value_balances["Eigentümer"]["Gebrauchsvermögen E"] += betrag
+            if f"Gebrauchsvermögen {von_bank_id}" in st.session_state.value_balances["Eigentümer"]:
+                st.session_state.value_balances["Eigentümer"][f"Gebrauchsvermögen {von_bank_id}"] += betrag
 
-            st.session_state.highlights = ["Warenbestand UK", "Gebrauchsvermögen E"]
+            st.session_state.highlights_red = ["Warenbestand UK"]
+            st.session_state.highlights_green = ["Gebrauchsvermögen E"]
             st.session_state.logs.append(f"📦 Waren geliefert. Gebrauchsvermögen E erhöht.")
             C_bereinigt = betrag * (1 - (1 / (1 + r)) * (1 - vk))
             st.session_state.current_C_roh += C_bereinigt
@@ -546,7 +606,7 @@ def zentralbank_clearing():
             st.session_state.balances["Zentralbank"]["Liabilities"][zb_reserve_key] -= clearing_betrag
 
             st.session_state.logs.append(f"🔄 Clearing {bank_id}: {clearing_betrag}€ wurden netto verrechnet.")
-            st.session_state.highlights += [reserve_key, kredit_key, zb_forderung_key, zb_reserve_key]
+            st.session_state.highlights_green += [reserve_key, kredit_key, zb_forderung_key, zb_reserve_key]
 
     return True
 
@@ -597,6 +657,8 @@ def regeneration_prozess():
                                    "Eigenkapital Beschäftigte","Eigenk. Eigentümer UK","Eigenk. Eigentümer UI"
         ,"Eigenk. Bankenbesitzer"]
     return True
+
+
 
 """Introduction"""
 #### Funktionen für Introdukction
