@@ -269,14 +269,14 @@ with col_control:
             if st.button("Kredit Kunde 1", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": prozess_kredit_intro, "args": (betrag, zins_val, "Kunde 1", "Bank A", speed, i)}
-                    for i in range(1, 6)
+                    for i in range(1, 7)
                 ]
                 st.rerun()
         with c2:
             if st.button("Kredit Kunde 2", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": prozess_kredit, "args": (betrag, zins_val, "Kunde 2", "Bank B", speed, i)}
-                    for i in range(1, 6)
+                    for i in range(1, 7)
                 ]
                 st.rerun()
 
