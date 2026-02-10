@@ -15,22 +15,25 @@ if "pending_steps" not in st.session_state:
 st.markdown("""
     <style>
         /* Hauptüberschriften (h1, h2) verkleinern */
-        h1 { font-size: 1.5rem !important; }
-        h2 { font-size: 1.2rem !important; }
-        h3 { font-size: 1.0rem !important; }
+        h1 { font-size: 1.3rem !important; }
+        h2 { font-size: 1.0rem !important;
+        text-align: center;}
+        h3 { font-size: 0.8rem !important; }
 
         /* Die Namen über deinen Bilanzen (h4) */
         h4 { 
-            font-size: 0.9rem !important; 
+            font-size: 1rem !important; 
             font-weight: bold !important;
             margin-bottom: 0px !important;
-            padding-bottom: 1px !important;
+            padding-bottom: 0px !important;
+            text-align: center;
         }
 
         /* Die Schrift innerhalb der Tabellen (st.table) */
         .stTable td, .stTable th {
-            font-size: 11px !important;
-            padding: 2px 5px !important;
+            font-size: 0.7rem !important;
+            margin-bottom: 1px !important;
+            padding-bottom: 1px !important;
         }
 
         /* Den Abstand zwischen den Elementen verringern */
@@ -67,15 +70,48 @@ st.markdown("""
                     margin-bottom: 10px !important;
                     text-align: center;
                     font-family: sans-serif;
-                }
-            @keyframes flash {
-                    0% { background-color: #ffff99; } /* Helles Gelb am Anfang */
-                    100% { background-color: transparent; } /* Zurück zum Normalzustand */
-                }
-                
-                .flash-change {
-                    animation: flash 2s ease-out;
-                }
+        }
+        /* Gelber Plan: Was wird sich bewegen? */
+        @keyframes flash-plan {
+            0% { background-color: #fff9c4; } /* Sanftes Pastellgelb */
+            100% { background-color: #fff9c4; } 
+        }
+        .plan-change {
+            background-color: #fff9c4 !important;
+            color: #000000 !important; /* Explizit schwarze Schrift */
+            border: 1px solid #fbc02d;
+            padding: 2px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+        
+        /* GRÜNER Flash: Für Zunahmen (+) */
+        @keyframes flash-green {
+            0% { background-color: #c8e6c9; color: #1b5e20; }
+            100% { background-color: transparent; }
+        }
+        .action-green {
+            animation: flash-green 4s ease-out;
+            font-weight: bold !important;
+            color: #1b5e20 !important;
+            border: 1px solid #2e7d32;
+            padding: 2px;
+            border-radius: 3px;
+        }
+    
+        /* ROTER Flash: Für Abnahmen (-) */
+        @keyframes flash-red {
+            0% { background-color: #ffcdd2; color: #b71c1c; }
+            100% { background-color: transparent; }
+        }
+        .action-red {
+            animation: flash-red 4s ease-out;
+            font-weight: bold !important;
+            color: #b71c1c !important;
+            border: 1px solid #c62828;
+            padding: 2px;
+            border-radius: 3px;
+        }
         
     </style>
     """, unsafe_allow_html=True)
@@ -116,16 +152,16 @@ if 'initialized' not in st.session_state:
             "Liabilities": {"Kredit bei C": 0, "Eigenkapital Beschäftigte": 0}
         },
         "Eigentümer": {
-            "Assets": {"Guthaben bei A": 1000, "Guthaben bei B": 0, "Guthaben bei C": 0,
+            "Assets": {"Guthaben bei A": 0, "Guthaben bei B": 0, "Guthaben bei C": 0,
                        "Gebrauchsvermögen E": 0},
-            "Liabilities": {"Eigenk. Eigentümer UK": 1000, "Eigenk. Eigentümer UI": 0, "Eigenk. Bankenbesitzer": 0}
+            "Liabilities": {"Eigenk. Eigentümer UK": 0, "Eigenk. Eigentümer UI": 0, "Eigenk. Bankenbesitzer": 0}
         },
     }
 
     st.session_state.value_balances = {
         "UK": {
             "Arbeitskraft": 0.0,
-            "Warenbestand": 0,
+            "Warenbestand": 0.0,
             "Sachvermögen": 0.0
         },
         "UI": {
@@ -152,7 +188,9 @@ if 'initialized' not in st.session_state:
     st.session_state.logs = ["Willkommen beim Simulator!"]
     st.session_state.current_round = 1
     st.session_state.actions_done = []
-    st.session_state.highlights = []
+    st.session_state.highlights_red = []
+    st.session_state.highlights_green = []
+    st.session_state.highlights_plan = []
     st.session_state.last_logged_round = 0
     st.session_state.initialized = True
 
@@ -175,39 +213,29 @@ def log_info(text):
 col_control, col_tableau = st.columns([1, 3.5])
 
 
-# --- RECHTE SPALTE: DIE BILANZEN ---
-with col_tableau:
-    st.markdown("<h3 style='text-align: center;'>📊 Wirtschafts-Tableau</h3>", unsafe_allow_html=True)
-
-    # Deine r1, r2, r3 Reihen hier rein...
-    # row1_col1, row1_col2, row1_col3 = st.columns(3) usw.
-# --- BILANZ-GRID LAYOUT ---
+# --- RECHTE SPALTE: DIE BILANZEN ------
 
 def show_bilanz(name):
     if name in st.session_state.balances:
-        st.markdown(f"<h4 style='text-align: center;'>{name}</h4>", unsafe_allow_html=True)
-
-        assets_dict = st.session_state.balances[name]["Assets"]
-        liabs_dict = st.session_state.balances[name]["Liabilities"]
-
+        st.markdown(f"#### {name}")
         assets = st.session_state.balances[name]["Assets"]
         liabs = st.session_state.balances[name]["Liabilities"]
-        a_list = []
-        for k, v in assets.items():
-            # Check: Ist dieses Konto in der Liste der zuletzt geänderten?
-            if k in st.session_state.get("highlights", []):
-                a_list.append(f'<div class="flash-change">{k}: {v}</div>')
-            else:
-                a_list.append(f"{k}: {v}")
-        l_list = []
-        for k, v in liabs_dict.items():
-            # Check: Ist dieses Konto in der Liste der zuletzt geänderten?
-            if k in st.session_state.get("highlights", []):
-                l_list.append(f'<div class="flash-change">{k}: {v}</div>')
-            else:
-                l_list.append(f"{k}: {v}")
 
-        # Symmetrie herstellen (auffüllen mit Leerzeichen)
+        def format_cell(k, v):
+            # 1. Priorität: Grün (Zunahme)
+            if k in st.session_state.get("highlights_green", []):
+                return f'<div class="action-green">{k}: {v}</div>'
+            # 2. Priorität: Rot (Abnahme)
+            elif k in st.session_state.get("highlights_red", []):
+                return f'<div class="action-red">{k}: {v}</div>'
+            # 3. Priorität: Plan (Gelb)
+            elif k in st.session_state.get("highlights_plan", []):
+                return f'<div class="plan-change">{k}: {v}</div>'
+            return f"{k}: {v}"
+
+        a_list = [format_cell(k, v) for k, v in assets.items()]
+        l_list = [format_cell(k, v) for k, v in liabs.items()]
+
         max_rows = max(len(a_list), len(l_list))
         while len(a_list) < max_rows:
             a_list.append("")
@@ -231,6 +259,7 @@ def show_bilanz(name):
                 val_items = [f"<b>{k}:</b> {v}" for k, v in values.items()]
                 val_text = " | ".join(val_items)
                 st.markdown(f'<p class="real-werte">📦 {val_text}</p>', unsafe_allow_html=True)
+
 with col_tableau:
     st.subheader("Wirtschafts-Tableau")
 # ERSTE ZEILE: Bank A | Zentralbank | Bank B
@@ -350,14 +379,14 @@ with col_control:
                 st.markdown(f"<p style='font-size: 12px; margin: 0; line-height: 1.2;'>{msg}</p>",
                             unsafe_allow_html=True)
     st.markdown("### 💰 Eingabe")
-    betrag_val = st.number_input("Betrag für Aktionen", value=0, step=500, key="main_betrag")
+    betrag_val = st.number_input("Betrag für Aktionen (Negativ für Kredittilgung)", value=0, step=500, key="main_betrag")
 
     st.markdown("### 🕹️ Steuerung")
     control_container = st.container(height=500, border=True)
     with control_container:
         # Eingaben
-        zins_val = st.slider("Zinssatz (%)", 0.0, 0.20, 0.05, step=0.01)
-        speed_val = st.slider("Speed (sek)", 0.0, 3.0, 0.5)
+        zins_val = st.slider("Zinssatz (%)", 0.0, 0.20, 0.0, step=0.01)
+        speed_val = st.slider("Dauer Animation (sek)", 0.0, 3.0, 1.0, key="intro_speed")
 
         st.divider()
 
@@ -370,8 +399,8 @@ with col_control:
             already_done = "kredit_uk" in st.session_state.actions_done
             if st.button("Kredit UK", disabled=(is_positive and already_done), use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "UK", "Bank A", speed_val, 1)},
-                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "UK", "Bank A", speed_val, 2)}
+                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "UK", "Bank A", speed_val, i)}
+                    for i in range(0, 4)
                 ]
                 if is_positive: st.session_state.actions_done.append("kredit_uk")
                 st.rerun()
@@ -380,8 +409,8 @@ with col_control:
             already_done = "kredit_ui" in st.session_state.actions_done
             if st.button("Kredit UI", disabled=(is_positive and already_done), use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "UI", "Bank B", speed_val, 1)},
-                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "UI", "Bank B", speed_val, 2)}
+                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "UI", "Bank B", speed_val, i)}
+                    for i in range(0, 4)
                 ]
                 if is_positive: st.session_state.actions_done.append("kredit_ui")
                 st.rerun()
@@ -390,8 +419,8 @@ with col_control:
             already_done = "kredit_a" in st.session_state.actions_done
             if st.button("Angestellte", disabled=(is_positive and already_done), use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "Beschäftigte", "Bank C", speed_val, 1)},
-                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "Beschäftigte", "Bank C", speed_val, 2)}
+                    {"func": prozess_kredit, "args": (betrag_val, zins_val, "Beschäftigte", "Bank C", speed_val, i)}
+                    for i in range(0, 4)
                 ]
                 if is_positive: st.session_state.actions_done.append("kredit_a")
                 st.rerun()
@@ -412,7 +441,7 @@ with col_control:
                     # und die Aktion als "erledigt" markiert
                     st.session_state.pending_steps = [
                         {"func": lohnzahlung_prozess, "args": (betrag_val, "UK", "Bank A", speed_val, i)}
-                        for i in range(1, 5)
+                        for i in range(0, 8)
                     ]
                     st.session_state.actions_done.append("lohn_uk")
                     st.rerun()
@@ -428,7 +457,7 @@ with col_control:
                 else:
                     st.session_state.pending_steps = [
                         {"func": lohnzahlung_prozess, "args": (betrag_val, "UI", "Bank B", speed_val, i)}
-                        for i in range(1, 5)
+                        for i in range(0, 8)
                     ]
                     st.session_state.actions_done.append("lohn_ui")
                     st.rerun()
@@ -458,8 +487,8 @@ with col_control:
             if st.button("Produzieren UK", use_container_width=True, disabled=done_uk):
                 if genug_ressourcen_uk:
                     st.session_state.pending_steps = [
-                        {"func": produktion_prozess, "args": ("UK", k_sum_uk, q_uk, r_uk, 1)},
-                        {"func": produktion_prozess, "args": ("UK", k_sum_uk, q_uk, r_uk, 2)}
+                        {"func": produktion_prozess, "args": ("UK", k_sum_uk, q_uk, r_uk, i)}
+                        for i in range(0, 3)
                     ]
                     st.session_state.actions_done.append("prod_uk")
                     st.rerun()
@@ -488,8 +517,8 @@ with col_control:
             if st.button("Produzieren UI", use_container_width=True, disabled=done_ui):
                 if genug_ressourcen_ui:
                     st.session_state.pending_steps = [
-                        {"func": produktion_prozess, "args": ("UI", k_sum_ui, q_ui, r_ui, 1)},
-                        {"func": produktion_prozess, "args": ("UI", k_sum_ui, q_ui, r_ui, 2)}
+                        {"func": produktion_prozess, "args": ("UI", k_sum_ui, q_ui, r_ui, i)}
+                        for i in range(0, 3)
                     ]
                     st.session_state.actions_done.append("prod_ui")
                     st.rerun()
@@ -502,14 +531,14 @@ with col_control:
         with m_col1:
             if st.button("Kauf Invest-Güter (UK)", use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": kauf_invest_prozess, "args": (betrag_val, i)} for i in range(1, 5)
+                    {"func": kauf_invest_prozess, "args": (betrag_val, i)} for i in range(0, 8)
                 ]
                 st.rerun()
 
         with m_col2:
             if st.button("Kauf Lebensmittel", use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": kauf_konsum_prozess, "args": (betrag_val, i,r_uk, q_uk)} for i in range(1, 5)
+                    {"func": kauf_konsum_prozess, "args": (betrag_val, i,r_uk, q_uk)} for i in range(0, 8)
                 ]
                 st.rerun()
         st.divider()
@@ -524,7 +553,7 @@ with col_control:
             done_div_uk = "div_uk" in st.session_state.actions_done
             if st.button("Dividende UK", use_container_width=True, disabled=done_div_uk):
                 st.session_state.pending_steps = [{"func": dividende_prozess, "args": ("UK", betrag_val, i)} for i
-                                                  in [1, 2]]
+                                                  in  range(0, 4)]
                 st.session_state.actions_done.append("div_uk")
                 st.rerun()
 
@@ -533,7 +562,7 @@ with col_control:
             done_div_ui = "div_ui" in st.session_state.actions_done
             if st.button("Dividende UI", use_container_width=True, disabled=done_div_ui):
                 st.session_state.pending_steps = [{"func": dividende_prozess, "args": ("UI", betrag_val, i)} for i
-                                                  in [1, 2]]
+                                                  in  range(0, 4)]
                 st.session_state.actions_done.append("div_ui")
                 st.rerun()
 
@@ -546,7 +575,7 @@ with col_control:
             if st.button("Bank A", use_container_width=True, disabled=done_div_ba):
                 # Jetzt 2 Schritte für den Transfer zu Bank C
                 st.session_state.pending_steps = [{"func": dividende_prozess, "args": ("Bank A", betrag_val, i)} for i
-                                                  in [1, 2]]
+                                                  in  range(0, 7)]
                 st.session_state.actions_done.append("div_ba")
                 st.rerun()
 
@@ -556,7 +585,7 @@ with col_control:
             if st.button("Bank B", use_container_width=True, disabled=done_div_bb):
                 # Jetzt 2 Schritte für den Transfer zu Bank C
                 st.session_state.pending_steps = [{"func": dividende_prozess, "args": ("Bank B", betrag_val, i)} for i
-                                                  in [1, 2]]
+                                                  in  range(0, 7)]
                 st.session_state.actions_done.append("div_bb")
                 st.rerun()
 
@@ -566,7 +595,7 @@ with col_control:
             if st.button("Bank C", use_container_width=True, disabled=done_div_bc):
                 # Jetzt 2 Schritte für den Transfer zu Bank C
                 st.session_state.pending_steps = [{"func": dividende_prozess, "args": ("Bank C", betrag_val, i)} for i
-                                                  in [1, 2]]
+                                                  in range(0, 5)]
                 st.session_state.actions_done.append("div_bc")
                 st.rerun()
 
@@ -579,19 +608,19 @@ with col_control:
                 # Auch bei Bank A nutzen wir i in range(1, 5), die Funktion überspringt
                 # dort einfach die ZB-Schritte logisch
                 st.session_state.pending_steps = [{"func": kauf_eigentuemer_prozess, "args": (betrag_val, "A",i, r_uk, q_uk)} for i
-                                                  in range(1, 5)]
+                                                  in range(0, 8)]
                 st.rerun()
 
         with k_row2:
             if st.button("Konto B", key="buy_b", use_container_width=True):
                 st.session_state.pending_steps = [{"func": kauf_eigentuemer_prozess, "args": (betrag_val, "B",i, r_uk, q_uk)} for i
-                                                  in range(1, 5)]
+                                                  in range(0, 8)]
                 st.rerun()
 
         with k_row3:
             if st.button("Konto C", key="buy_c", use_container_width=True):
                 st.session_state.pending_steps = [{"func": kauf_eigentuemer_prozess, "args": (betrag_val, "C",i, r_uk, q_uk)} for i
-                                                  in range(1, 5)]
+                                                  in range(0, 8)]
                 st.rerun()
         st.divider()
         st.write("**Perioden-Abschluss**")
@@ -628,19 +657,28 @@ with col_control:
 
 # --- HIER GANZ UNTEN KOMMT DER MOTOR REIN (siehe oben) ---
 t = 1
-if st.session_state.get("pending_steps"):
+has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
+
+if st.session_state.get("pending_steps") or has_active_highlights:
     # 1. Reset-Blitz (Highlights löschen)
-    if st.session_state.get("highlights"):
-        st.session_state.highlights = []
-        time.sleep(t) # Nur ganz kurz!
+    if has_active_highlights:
+        # Wir lassen die Farbe für die Dauer des Sliders stehen (wurde unten pausiert)
+        st.session_state.highlights_green = []
+        st.session_state.highlights_red = []
+
+        if not st.session_state.get("pending_steps"):
+            st.session_state.highlights_plan = []
+
+        time.sleep(speed_val) # Kurzer technischer Reset
         st.rerun()
 
     # 2. Aktion ausführen
-    else:
-        current_action = st.session_state.pending_steps.pop(0)
-        # Wichtig: Wir fangen den Rückgabewert ab
-        success = current_action["func"](*current_action["args"])
+    elif st.session_state.get("pending_steps"):
+        current_step_data = st.session_state.pending_steps.pop(0)
+        current_step_data["func"](*current_step_data["args"])
 
-        # Pause, damit der User das Ergebnis (Gelb) sehen kann
-        time.sleep(st.session_state.get("intro_speed", 0.5))
+        # JEDER Schritt (auch der gelbe Plan) bekommt die Pause vom Slider
+        time.sleep(speed_val)
+
+        # Rerun, damit das gerade gesetzte Highlight (Grün oder Rot) angezeigt wird
         st.rerun()
