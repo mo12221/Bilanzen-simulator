@@ -159,7 +159,7 @@ with col_control:
 
     st.markdown("### 💰 Eingabe")
     betrag_val = st.number_input("Betrag", value=100, step=10, key="gov_betrag")
-    speed = st.slider("Speed (sek)", 0.0, 4.0, 1.0, key="gov_speed")
+    speed = st.slider("Dauer Animation (sek)", 0.0, 4.0, 1.0, key="gov_speed")
 
     st.markdown("### 🕹️ Steuerung")
     control_container = st.container(height=450, border=True)
