@@ -208,9 +208,6 @@ def show_bilanz(name):
         a_list = [format_cell(k, v) for k, v in assets.items()]
         l_list = [format_cell(k, v) for k, v in liabs.items()]
 
-        # ... Rest der Funktion (DataFrame-Erstellung) wie gehabt ...
-
-        # Symmetrie herstellen (auffüllen mit Leerzeichen)
         max_rows = max(len(a_list), len(l_list))
         while len(a_list) < max_rows:
             a_list.append("")
@@ -264,7 +261,7 @@ with col_control:
     st.markdown("### 🕹️ Steuerung")
     control_box = st.container(height=400, border=True)
     with control_box:
-        speed = st.slider("Speed", 0.0, 4.0, 2.0, key="intro_speed")
+        speed = st.slider("Dauer Animation (sek)", 0.0, 4.0, 2.0, key="intro_speed")
         zins_val = st.slider("Zinssatz (%)", 0.0, 0.20, 0.0, step=0.01)
         st.write("**Kredite (Geld schöpfen)**")
         c1, c2 = st.columns(2)
@@ -329,9 +326,6 @@ with col_control:
                 st.rerun()
 
 # --- MOTOR (Optimiert für Plan & Action Timing) ---
-# --- PRÄZISIONS-MOTOR V4 (Einzelschritt-Garantie) ---
-# --- PRÄZISIONS-MOTOR V5 (Sichtbarkeit für den letzten Schritt) ---
-# --- PRÄZISIONS-MOTOR V8 (Grün & Rot Support) ---
 has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
 
 if st.session_state.get("pending_steps") or has_active_highlights:
