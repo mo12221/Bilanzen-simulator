@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 
-from Transfers import prozess_kredit, lohnzahlung_prozess, interbank_transfer,prozess_kredit_intro, zb_kredit_prozess
+from Transfers import prozess_kredit, lohnzahlung_prozess, interbank_transfer,prozess_kredit_intro, zb_kredit_prozess, bargeld_intro
 from Game_play import get_mission
 import matplotlib.pyplot as plt
 
@@ -128,22 +128,22 @@ if 'initialized' not in st.session_state:
     st.session_state.balances = {
         "Zentralbank": {
             "Assets": {"Forderung Bank A": 0, "Forderung Bank B": 0},
-            "Liabilities": {"Reserve Bank A": 0, "Reserve Bank B": 0}
+            "Liabilities": {"Reserve Bank A": 0, "Reserve Bank B": 0, "Bargeldumlauf": 0}
         },
         "Bank A": {
-            "Assets": {"Reserve bei ZB A": 0, "Kredite Kunde 1": 0},
-            "Liabilities": {"Kredit bei ZB A": 0, "Einlage Kunde 1": 0, "Eigenkapital A": 0}
+            "Assets": {"Reserve bei ZB A": 0, "Staatsanleihen A": 100,"Kredite Kunde 1": 0},
+            "Liabilities": {"Kredit bei ZB A": 0, "Einlage Kunde 1": 0, "Eigenkapital A": 100}
         },
         "Bank B": {
-            "Assets": {"Reserve bei ZB B": 0, "Kredite Kunde 2": 0},
-            "Liabilities": {"Kredit bei ZB B": 0, "Einlage Kunde 2": 0, "Eigenkapital B": 0}
+            "Assets": {"Reserve bei ZB B": 0,"Staatsanleihen B": 100, "Kredite Kunde 2": 0},
+            "Liabilities": {"Kredit bei ZB B": 0, "Einlage Kunde 2": 0, "Eigenkapital B": 100}
         },
         "Kunde 1": {
-            "Assets": {"Bankguthaben bei A": 0, "Sachvermögen 1": 100},
+            "Assets": {"Bankguthaben bei A": 0, "Bargeld 1": 0, "Sachvermögen 1": 100},
             "Liabilities": {"Kredit bei A": 0, "Eigenkapital 1": 100}
         },
         "Kunde 2": {
-            "Assets": {"Bankguthaben bei B": 0, "Sachvermögen 2": 100},
+            "Assets": {"Bankguthaben bei B": 0, "Bargeld 2": 0, "Sachvermögen 2": 100},
             "Liabilities": {"Kredit bei B": 0, "Eigenkapital 2": 100}
         },
     }
@@ -252,7 +252,7 @@ with col_control:
     st.markdown("### 📟 System-Log")
     log_box = st.container(height=150, border=True)
     with log_box:
-        for msg in st.session_state.logs[-30:]:
+        for msg in st.session_state.logs[::-1]:
             st.markdown(f"<p style='font-size: 10px; margin: 0;'>{msg}</p>", unsafe_allow_html=True)
 
     st.markdown("### 💰 Eingabe")
@@ -283,14 +283,14 @@ with col_control:
         st.divider()
         # --- Unter "Steuerung" im control_box Bereich ---
 
-        st.write("**Zentralbank-Liquidität**")
+        st.write("**Zentralbank-Liquidität (Wichtig: Staatsanleihen dienen als Sicherheit für den Kredit)**")
         zbc1, zbc2 = st.columns(2)
         with zbc1:
             if st.button("ZB-Kredit Bank A", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": zb_kredit_prozess,
                      "args": (betrag, "Bank A", speed, i)}
-                    for i in range(1, 5)
+                    for i in range(0, 5)
                 ]
                 st.rerun()
         with zbc2:
@@ -298,17 +298,17 @@ with col_control:
                 st.session_state.pending_steps = [
                     {"func": zb_kredit_prozess,
                      "args": (betrag, "Bank B", speed, i)}
-                    for i in range(1, 5)
+                    for i in range(0, 5)
                 ]
                 st.rerun()
 
         st.divider()
-        st.write("**Zahlungsverkehr (Transfer)**")
+        st.write("**Zahlungsverkehr & Bargeld**")
+        # Erste Zeile: Überweisungen (Giralgeld)
         t1, t2 = st.columns(2)
 
         with t1:
             if st.button("Transfer 1 ➔ 2", use_container_width=True):
-                # Jetzt nur noch 5 Schritte (alt 3 bis 7)
                 st.session_state.pending_steps = [
                     {"func": interbank_transfer,
                      "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, i)}
@@ -325,6 +325,26 @@ with col_control:
                 ]
                 st.rerun()
 
+        # Zweite Zeile: Bargeld-Auszahlung (Reserven zu Bargeld)
+        b1, b2 = st.columns(2)
+
+        with b1:
+            if st.button("💵 Cash abheben (K1)", use_container_width=True):
+                st.session_state.pending_steps = [
+                    {"func": bargeld_intro,
+                     "args": (betrag, "Kunde 1", "Bank A", speed, i)}
+                    for i in range(0, 5)
+                ]
+                st.rerun()
+
+        with b2:
+            if st.button("💵 Cash abheben (K2)", use_container_width=True):
+                st.session_state.pending_steps = [
+                    {"func": bargeld_intro,
+                     "args": (betrag, "Kunde 2", "Bank B", speed, i)}
+                    for i in range(0, 5)
+                ]
+                st.rerun()
 # --- MOTOR (Optimiert für Plan & Action Timing) ---
 has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
 
