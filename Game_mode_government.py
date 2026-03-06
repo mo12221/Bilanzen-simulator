@@ -85,14 +85,14 @@ if 'initialized' not in st.session_state:
         },
         "Zentralbank": {
             "Assets": {"Forderung Bank A": 0},
-            "Liabilities": {"Reserve Bank A": 0, "Guthaben Staat": 0}
+            "Liabilities": {"Bargeldumlauf":0,"Reserve Bank A": 0, "Guthaben Staat": 0}
         },
         "Bank A": {
             "Assets": {"Reserve bei ZB": 0, "Staatsanleihen": 0},
             "Liabilities": {"Kredit bei ZB":0,"Einlage Bürger": 0, "Eigenkapital Bank": 0}
         },
         "Bürger": {
-            "Assets": {"Bankguthaben": 0},
+            "Assets": {"Bankguthaben": 0, "Bargeld":0},
             "Liabilities": {"Eigenkapital Bürger": 0}
         }
     }
@@ -198,6 +198,12 @@ with col_control:
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("steuern", betrag_val, i)}
                 for i in range(1, 7)
+            ]
+            st.rerun()
+        if st.button("6. Bargeld abheben (Bürger)", use_container_width=True):
+            st.session_state.pending_steps = [
+                {"func": staat_prozess, "args": ("bargeld", betrag_val, i)}
+                for i in range(0, 5)
             ]
             st.rerun()
 
