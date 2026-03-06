@@ -671,7 +671,14 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
     b_id = bank_name.split()[-1]  # "A" oder "B"
 
     try:
-        if schritt == 1:
+        if schritt == 0:
+            # Prüfung: Hat die Bank überhaupt genug Anleihen als Sicherheit?
+            vorhandene_anleihen = st.session_state.balances[bank_name]["Assets"][f"Staatsanleihen {b_id}"]
+            if betrag > vorhandene_anleihen:
+                st.session_state.logs.append(f"❌ {bank_name} hat nicht genug Staatsanleihen als Sicherheit!")
+                st.session_state.logs.append(f"Vorhanden: {vorhandene_anleihen}€ | Benötigt: {betrag}€")
+                st.session_state.pending_steps = []
+        elif schritt == 1:
             st.session_state.highlights_action = []
             st.session_state.highlights_plan = [f"Forderung {bank_name}", f"Kredit bei ZB {b_id}",f"Reserve bei ZB {b_id}", f"Reserve {bank_name}"]
         elif schritt == 2:
@@ -686,6 +693,7 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
             st.session_state.balances[bank_name]["Assets"][f"Reserve bei ZB {b_id}"] += betrag
             st.session_state.balances["Zentralbank"]["Liabilities"][f"Reserve {bank_name}"] += betrag
             st.session_state.highlights_green = [f"Reserve bei ZB {b_id}", f"Reserve {bank_name}"]
+            st.session_state.highlights_plan = [f"Staatsanleihen {b_id}"]
         elif schritt == 4:
             st.session_state.highlights_plan = []
             st.session_state.logs.append(f"💰 Reserven wurden {bank_name} gutgeschrieben.")
@@ -694,6 +702,77 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
         st.session_state.pending_steps = []
 
 
+def bargeld_intro(betrag, kunde_name, bank_name, speed, schritt):
+    k_id = kunde_name.split()[-1]  # "1" oder "2"
+    b_id = bank_name.split()[-1]  # "A" oder "B"
+
+    # Pfade zu den Konten
+    konto_guthaben = f"Bankguthaben bei {b_id}"
+    konto_einlage = f"Einlage Kunde {k_id}"
+    konto_reserve_bank = f"Reserve bei ZB {b_id}"
+    konto_reserve_zb = f"Reserve Bank {b_id}"
+    konto_bargeld = f"Bargeld {k_id}"
+
+    try:
+        # Schritt 0: Validierung und Planung
+        if schritt == 0:
+            guthaben = st.session_state.balances[kunde_name]["Assets"][konto_guthaben]
+            reserve_bank = st.session_state.balances[bank_name]["Assets"][konto_reserve_bank]
+            if betrag > guthaben:
+                st.session_state.logs.append(f"⚠️ Abbruch: Zu wenig Guthaben bei {kunde_name}!")
+                st.session_state.pending_steps = []
+                return False
+
+            if betrag > reserve_bank:
+                st.session_state.logs.append(
+                    f"💥 BANKRUN-GEFAHR! {bank_name} hat nicht genug Reserven bei der ZB, um das Bargeld auszuzahlen!")
+                st.session_state.logs.append("💡 Tipp: Die Bank muss erst einen ZB-Kredit aufnehmen, um Reserven zu erhalten.")
+                st.session_state.pending_steps = []
+                return False
+
+            st.session_state.highlights_plan = [
+                konto_guthaben, konto_einlage,
+                konto_reserve_bank, konto_reserve_zb,
+                konto_bargeld, "Bargeldumlauf"
+            ]
+            st.session_state.logs.append(f"🔍 {kunde_name} bereitet Abhebung von {betrag}€ vor.")
+
+        # Schritt 1: Abbuchung beim Kunden und der Bank (Giralgeldausbuchung)
+        elif schritt == 1:
+            st.session_state.balances[kunde_name]["Assets"][konto_guthaben] -= betrag
+            st.session_state.balances[bank_name]["Liabilities"][konto_einlage] -= betrag
+
+            st.session_state.highlights_red = [konto_guthaben, konto_einlage]
+            st.session_state.logs.append(f"📉 Bankguthaben von {kunde_name} reduziert.")
+
+        # Schritt 2: Bank holt sich das Bargeld bei der ZB (Reserven sinken)
+        elif schritt == 2:
+            st.session_state.balances[bank_name]["Assets"][konto_reserve_bank] -= betrag
+            st.session_state.balances["Zentralbank"]["Liabilities"][konto_reserve_zb] -= betrag
+
+            st.session_state.highlights_red = [konto_reserve_bank, konto_reserve_zb]
+            st.session_state.logs.append(f"🏛️ Bank {b_id} tauscht Reserven gegen Bargeld bei der ZB.")
+
+        # Schritt 3: Einbuchung Bargeld beim Kunden und ZB-Passivtausch
+        elif schritt == 3:
+            st.session_state.balances["Zentralbank"]["Liabilities"]["Bargeldumlauf"] += betrag
+            st.session_state.balances[kunde_name]["Assets"][konto_bargeld] += betrag
+
+            st.session_state.highlights_green = [konto_bargeld,"Bargeldumlauf"]
+            st.session_state.logs.append(f"💵 {kunde_name} hält nun {betrag}€ in bar.")
+
+        # Schritt 4: Abschluss
+        elif schritt == 4:
+            st.session_state.highlights_plan = []
+            st.session_state.highlights_green = []
+            st.session_state.highlights_red = []
+            st.session_state.logs.append(f"✅ Bargeld-Abhebung erfolgreich abgeschlossen.")
+        return True
+
+    except KeyError as e:
+        st.error(f"Fehler: Konto {e} nicht in der Bilanz gefunden!")
+        st.session_state.pending_steps = []
+        return False
 
 def interbank_transfer(betrag, sender, empfaenger, bank_sender, bank_empfaenger, speed, schritt):
     """Schritt 3 bis 7: Der eigentliche Transfer"""
@@ -953,6 +1032,32 @@ def staat_prozess(aktion, betrag, schritt):
                 st.session_state.highlights_plan = []
                 st.session_state.logs.append(f"💸 Steuern Schritt 3: Staat erhält Reserven.")
 
+        elif aktion == "bargeld":
+            guthaben = st.session_state.balances["Bürger"]["Assets"]["Bankguthaben"]
+            if schritt == 0:
+                if betrag > guthaben:
+                    st.session_state.logs.append(f"Zu wenig Guthaben!")
+                    st.session_state.pending_steps = []
+                    return False
+
+                st.session_state.highlights_plan = ["Bankguthaben", "Einlage Bürger",
+                                                    "Reserve bei ZB", "Reserve Bank A",
+                                                    "Bargeld","Bargeldumlauf"]
+            elif schritt == 1:
+                st.session_state.balances["Bank A"]["Liabilities"]["Einlage Bürger"] -= betrag
+                st.session_state.balances["Bürger"]["Assets"]["Bankguthaben"] -= betrag
+                st.session_state.highlights_red = ["Bankguthaben", "Einlage Bürger"]
+            elif schritt == 2:
+                st.session_state.balances["Bank A"]["Assets"]["Reserve bei ZB"] -= betrag
+                st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve Bank A"] -= betrag
+                st.session_state.highlights_red = ["Reserve bei ZB", "Reserve Bank A"]
+            elif schritt == 3:
+                st.session_state.balances["Zentralbank"]["Liabilities"]["Bargeldumlauf"] += betrag
+                st.session_state.balances["Bürger"]["Assets"]["Bargeld"] += betrag
+                st.session_state.highlights_green = ["Bargeld","Bargeldumlauf"]
+            elif schritt == 4:
+                st.session_state.highlights_plan = []
+                st.session_state.logs.append(f"💸 Bargeld abgehoben.")
         return True
     except Exception as e:
         st.error(f"Fehler: {e}")
