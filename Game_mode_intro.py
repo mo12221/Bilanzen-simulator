@@ -122,30 +122,32 @@ st.markdown("""
 
 # 2. INITIALISIERUNG DES SPEICHERS (Session State)
 if 'initialized' not in st.session_state:
-    entities = ["Bank A", "Zentralbank", "Bank B", "UK",
-                "Bank C", "UI", "Eigentümer", "Arbeiter:innen"]
 
     st.session_state.balances = {
-        "Zentralbank": {
-            "Assets": {"Forderung Bank A": 0, "Forderung Bank B": 0},
-            "Liabilities": {"Reserve Bank A": 0, "Reserve Bank B": 0, "Bargeldumlauf": 0}
+        "Bank of England (BoE)": {
+            "Assets": {"Forderung London Bank": 0, "Forderung Edinburgh Bank": 0},
+            "Liabilities": {"Reserve London Bank": 0, "Reserve Edinburgh Bank": 0, "Bargeldumlauf": 0}
         },
-        "Bank A": {
-            "Assets": {"Reserve bei ZB A": 0, "Staatsanleihen A": 100,"Kredite Kunde 1": 0},
-            "Liabilities": {"Kredit bei ZB A": 0, "Einlage Kunde 1": 0, "Eigenkapital A": 100}
+        "London Bank (LB)": {
+            "Assets": {"Reserve bei BoE LB": 0,"Kredite Karl": 0,"Kredite Friedrich": 0, "Staatsanleihen L. Bank": 200},
+            "Liabilities": {"Kredit bei BoE LB": 0, "Einlage Karl": 0, "Einlage Friedrich": 0, "Eigenkapital LB": 200}
         },
-        "Bank B": {
-            "Assets": {"Reserve bei ZB B": 0,"Staatsanleihen B": 100, "Kredite Kunde 2": 0},
-            "Liabilities": {"Kredit bei ZB B": 0, "Einlage Kunde 2": 0, "Eigenkapital B": 100}
+        "Edinburgh Bank (EB)": {
+            "Assets": {"Reserve bei BoE EB": 0, "Kredite Adam": 0, "Staatsanleihen L. Bank": 100},
+            "Liabilities": {"Kredit bei BoE EB": 0, "Einlage Adam": 0, "Eigenkapital EB": 100}
         },
-        "Kunde 1": {
-            "Assets": {"Bankguthaben bei A": 0, "Bargeld 1": 0, "Sachvermögen 1": 100},
-            "Liabilities": {"Kredit bei A": 0, "Eigenkapital 1": 100}
+        "Karl": {
+            "Assets": {"Bankguthaben Karl bei LB": 0, "Bargeld K.": 0, "Sachvermögen K.": 100},
+            "Liabilities": {"Kredit bei LB": 0, "Eigenkapital K.": 100}
         },
-        "Kunde 2": {
-            "Assets": {"Bankguthaben bei B": 0, "Bargeld 2": 0, "Sachvermögen 2": 100},
-            "Liabilities": {"Kredit bei B": 0, "Eigenkapital 2": 100}
+        "Adam": {
+            "Assets": {"Bankguthaben Adam bei EB": 0, "Bargeld A.": 0, "Sachvermögen A.": 100},
+            "Liabilities": {"Kredit Adam bei EB": 0, "Eigenkapital A.": 100}
         },
+        "Friedrich": {
+            "Assets": {"Bankguthaben Friedrich bei LB": 0, "Bargeld F.": 0, "Sachvermögen F.": 100},
+            "Liabilities": {"Kredit Friedrich bei LB": 0, "Eigenkapital F.": 100}
+        }
     }
     st.session_state.BIP_history = [0]  # Startwert für den Plot
     st.session_state.round_history = [0]
@@ -230,22 +232,22 @@ with col_tableau:
     # ERSTE ZEILE: Bank A | Zentralbank | Bank B
     row1_col1, row1_col2, row1_col3 = st.columns(3)
     with row1_col1:
-        show_bilanz("Bank A")
+        show_bilanz("London Bank (LB)")
     with row1_col2:
-        show_bilanz("Zentralbank")
+        show_bilanz("Bank of England (BoE)")
     with row1_col3:
-        show_bilanz("Bank B")
+        show_bilanz("Edinburgh Bank (EB)")
 
     st.divider()
 
     # ZWEITE ZEILE: UK | Bank C | UI
     row2_col1, row2_col2, row2_col3 = st.columns(3)
     with row2_col1:
-        show_bilanz("Kunde 1")
+        show_bilanz("Karl")
     with row2_col2:
-        st.write("")
+        show_bilanz("Friedrich")
     with row2_col3:
-        show_bilanz("Kunde 2")
+        show_bilanz("Adam")
 
 # --- LINKE SPALTE: LOG & STEUERUNG ---
 with col_control:
@@ -263,88 +265,118 @@ with col_control:
     with control_box:
         speed = st.slider("Dauer Animation (sek)", 0.0, 4.0, 2.0, key="intro_speed")
         zins_val = st.slider("Zinssatz (%)", 0.0, 0.20, 0.0, step=0.01)
-        st.write("**Kredite (Geld schöpfen)**")
-        c1, c2 = st.columns(2)
+        st.write("** Kreditschöpfung **")
+        c1, c2, c3 = st.columns(3)
+        num_steps = 4 if betrag > 0 else 6
         with c1:
-            if st.button("Kredit Kunde 1", use_container_width=True):
+            if st.button("Kredit für Karl", use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": prozess_kredit_intro, "args": (betrag, zins_val, "Kunde 1", "Bank A", speed, i)}
-                    for i in range(1, 7)
-                ]
-                st.rerun()
-        with c2:
-            if st.button("Kredit Kunde 2", use_container_width=True):
-                st.session_state.pending_steps = [
-                    {"func": prozess_kredit, "args": (betrag, zins_val, "Kunde 2", "Bank B", speed, i)}
-                    for i in range(1, 7)
+                    {"func": prozess_kredit_intro,
+                     "args": (betrag, zins_val, "Karl", "London Bank (LB)", speed, i)}
+                    for i in range(0,num_steps)
                 ]
                 st.rerun()
 
+        with c2:
+            if st.button("Kredit für Friedrich", use_container_width=True):
+                st.session_state.pending_steps = [
+                    {"func": prozess_kredit_intro,
+                     "args": (betrag, zins_val, "Friedrich", "London Bank (LB)", speed, i)}
+                    for i in range(0,num_steps)
+                ]
+                st.rerun()
+
+        with c3:
+            # Adam Smith bei der Edinburgh Bank
+            if st.button("Kredit für Adam", use_container_width=True):
+                st.session_state.pending_steps = [
+                    {"func": prozess_kredit_intro,
+                     "args": (betrag, zins_val, "Adam", "Edinburgh Bank (EB)", speed, i)}
+                    for i in range(0,num_steps)
+                ]
+                st.rerun()
         st.divider()
         # --- Unter "Steuerung" im control_box Bereich ---
 
-        st.write("**Zentralbank-Liquidität (Wichtig: Staatsanleihen dienen als Sicherheit für den Kredit)**")
+        st.write("**BoE-Liquidität (Refinanzierung gegen Staatsanleihen)**")
         zbc1, zbc2 = st.columns(2)
+
         with zbc1:
-            if st.button("ZB-Kredit Bank A", use_container_width=True):
+            # Button für die London Bank (LB)
+            if st.button("BoE-Kredit London Bank", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": zb_kredit_prozess,
-                     "args": (betrag, "Bank A", speed, i)}
-                    for i in range(0, 5)
+                     "args": (betrag, "London Bank (LB)", speed, i)}
+                    for i in range(0, 4)  # 4 Schritte laut der neuen Funktion
                 ]
                 st.rerun()
+
         with zbc2:
-            if st.button("ZB-Kredit Bank B", use_container_width=True):
+            # Button für die Edinburgh Bank (EB)
+            if st.button("BoE-Kredit Edinburgh Bank", use_container_width=True):
                 st.session_state.pending_steps = [
                     {"func": zb_kredit_prozess,
-                     "args": (betrag, "Bank B", speed, i)}
-                    for i in range(0, 5)
+                     "args": (betrag, "Edinburgh Bank (EB)", speed, i)}
+                    for i in range(0, 4)  # 4 Schritte laut der neuen Funktion
                 ]
                 st.rerun()
 
-        st.divider()
         st.write("**Zahlungsverkehr & Bargeld**")
-        # Erste Zeile: Überweisungen (Giralgeld)
-        t1, t2 = st.columns(2)
+        # 1. Auswahl von Sender und Empfänger
+        col_s, col_e = st.columns(2)
 
-        with t1:
-            if st.button("Transfer 1 ➔ 2", use_container_width=True):
-                st.session_state.pending_steps = [
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 1", "Kunde 2", "Bank A", "Bank B", speed, i)}
-                    for i in range(1, 8)
-                ]
-                st.rerun()
+        personen = ["Karl", "Friedrich", "Adam"]
+        # Mapping: Wer ist bei welcher Bank?
+        bank_mapping = {
+            "Karl": "London Bank (LB)",
+            "Friedrich": "London Bank (LB)",
+            "Adam": "Edinburgh Bank (EB)"
+        }
 
-        with t2:
-            if st.button("Transfer 2 ➔ 1", use_container_width=True):
-                st.session_state.pending_steps = [
-                    {"func": interbank_transfer,
-                     "args": (betrag, "Kunde 2", "Kunde 1", "Bank B", "Bank A", speed, i)}
-                    for i in range(1, 8)
-                ]
-                st.rerun()
+        with col_s:
+            sender = st.selectbox("Sender", personen, index=0)
+        with col_e:
+            # Wir filtern den Sender aus der Empfängerliste, damit man sich nicht selbst Geld schickt
+            empfaenger_liste = [p for p in personen if p != sender]
+            empfaenger = st.selectbox("Empfänger", empfaenger_liste, index=0)
+
+        # 2. Den Transfer-Button auslösen
+        if st.button(f"💸 Transfer: {sender} ➔ {empfaenger}", use_container_width=True):
+            bank_s = bank_mapping[sender]
+            bank_e = bank_mapping[empfaenger]
+
+            # Wir nutzen 6 Schritte (0 bis 5) für die neue interbank_transfer Funktion
+            st.session_state.pending_steps = [
+                {"func": interbank_transfer,
+                 "args": (betrag, sender, empfaenger, bank_s, bank_e, speed, i)}
+                for i in range(0, 6)
+            ]
+            st.rerun()
 
         # Zweite Zeile: Bargeld-Auszahlung (Reserven zu Bargeld)
-        b1, b2 = st.columns(2)
-
+        st.write("**Bargeld-Kasse (Abhebung)**")
+        b1, b2, b3 = st.columns(3)
         with b1:
-            if st.button("💵 Cash abheben (K1)", use_container_width=True):
+            if st.button("Cash Karl", use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": bargeld_intro,
-                     "args": (betrag, "Kunde 1", "Bank A", speed, i)}
-                    for i in range(0, 5)
-                ]
+                    {"func": bargeld_intro, "args": (betrag, "Karl", "London Bank (LB)", speed, i)} for i in
+                    range(5)]
                 st.rerun()
 
         with b2:
-            if st.button("💵 Cash abheben (K2)", use_container_width=True):
+            if st.button("Cash Friedrich", use_container_width=True):
                 st.session_state.pending_steps = [
-                    {"func": bargeld_intro,
-                     "args": (betrag, "Kunde 2", "Bank B", speed, i)}
-                    for i in range(0, 5)
-                ]
+                    {"func": bargeld_intro, "args": (betrag, "Friedrich", "London Bank (LB)", speed, i)} for i in
+                    range(5)]
                 st.rerun()
+
+        with b3:
+            if st.button("Cash Adam", use_container_width=True):
+                st.session_state.pending_steps = [
+                    {"func": bargeld_intro, "args": (betrag, "Adam", "Edinburgh Bank (EB)", speed, i)} for i in
+                    range(5)]
+                st.rerun()
+
 # --- MOTOR (Optimiert für Plan & Action Timing) ---
 has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
 
