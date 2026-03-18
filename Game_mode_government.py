@@ -182,15 +182,6 @@ with col_control:
             st.rerun()
         st.divider()
 
-        st.write("**Zentralbank (QE)**")
-        if st.button("Starte QE-Ankauf", use_container_width=True,
-                     help="Die ZB kauft Anleihen ab und 'flutet' die Bank mit Reserven."):
-            st.session_state.pending_steps = [
-                {"func": staat_prozess, "args": ("QE", betrag_val, i)}
-                for i in range(1, 5)
-            ]
-            st.rerun()
-        st.divider()
 
         st.write("**Staat**")
         if st.button("Anleihe erzeugen", use_container_width=True):
@@ -207,14 +198,25 @@ with col_control:
             ]
             st.rerun()
         st.divider()
+
+        st.write("**Zentralbank (QE)**")
+        if st.button("Starte QE-Ankauf", use_container_width=True,
+                     help="Die ZB kauft Anleihen ab und 'flutet' die Bank mit Reserven."):
+            st.session_state.pending_steps = [
+                {"func": staat_prozess, "args": ("QE", betrag_val, i)}
+                for i in range(1, 5)
+            ]
+            st.rerun()
+        st.divider()
+
         st.write("**Milton**")
-        if st.button("5. Steuern zahlen (Milton)", use_container_width=True):
+        if st.button("Steuern zahlen (Milton)", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("steuern", betrag_val, i)}
                 for i in range(1, 7)
             ]
             st.rerun()
-        if st.button("6. Bargeld abheben (Milton)", use_container_width=True):
+        if st.button("Bargeld abheben (Milton)", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("bargeld", betrag_val, i)}
                 for i in range(0, 5)
