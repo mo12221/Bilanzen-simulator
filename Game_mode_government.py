@@ -84,16 +84,16 @@ if 'initialized' not in st.session_state:
             "Liabilities": {"Staatsanleihen (Gesamt)": 0, "Eigenkapital Staat": 0}
         },
         "Zentralbank": {
-            "Assets": {"Forderung Bank A": 0},
-            "Liabilities": {"Bargeldumlauf":0,"Reserve Bank A": 0, "Guthaben Staat": 0}
+            "Assets": {"Forderung London Bank": 0, "Bestand Staatsanleihen": 0},
+            "Liabilities": {"Bargeldumlauf":0,"Reserve London Bank": 0, "Guthaben Staat": 0}
         },
-        "Bank A": {
+        "London Bank": {
             "Assets": {"Reserve bei ZB": 0, "Staatsanleihen": 0},
-            "Liabilities": {"Kredit bei ZB":0,"Einlage Bürger": 0, "Eigenkapital Bank": 0}
+            "Liabilities": {"Kredit bei ZB":0,"Einlage Milton": 0, "Eigenkapital Bank": 0}
         },
-        "Bürger": {
+        "Milton": {
             "Assets": {"Bankguthaben": 0, "Bargeld":0},
-            "Liabilities": {"Eigenkapital Bürger": 0}
+            "Liabilities": {"Eigenkapital Milton": 0}
         }
     }
     st.session_state.logs = ["Willkommen im Staats-Simulator!"]
@@ -165,19 +165,33 @@ with col_control:
     control_container = st.container(height=450, border=True)
     with control_container:
         st.write("**Bank**")
-        if st.button("ZB Kredit erzeugen", use_container_width=True):
+        if st.button("Gewähre ZB-Kredit", use_container_width=True,
+                     help="London Bank verschuldet sich bei der ZB, um Reserven zu erhalten."):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("Kredit ZB", betrag_val, i)}
                 for i in range(1, 5)
             ]
             st.rerun()
-        st.divider()
+
+
         if st.button("Anleihe kaufen", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("verkaufen", betrag_val, i)}
                 for i in range(1, 6)
             ]
             st.rerun()
+        st.divider()
+
+        st.write("**Zentralbank (QE)**")
+        if st.button("Starte QE-Ankauf", use_container_width=True,
+                     help="Die ZB kauft Anleihen ab und 'flutet' die Bank mit Reserven."):
+            st.session_state.pending_steps = [
+                {"func": staat_prozess, "args": ("QE", betrag_val, i)}
+                for i in range(1, 5)
+            ]
+            st.rerun()
+        st.divider()
+
         st.write("**Staat**")
         if st.button("Anleihe erzeugen", use_container_width=True):
             st.session_state.pending_steps = [
@@ -193,14 +207,14 @@ with col_control:
             ]
             st.rerun()
         st.divider()
-        st.write("**Bürger**")
-        if st.button("5. Steuern zahlen (Bürger)", use_container_width=True):
+        st.write("**Milton**")
+        if st.button("5. Steuern zahlen (Milton)", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("steuern", betrag_val, i)}
                 for i in range(1, 7)
             ]
             st.rerun()
-        if st.button("6. Bargeld abheben (Bürger)", use_container_width=True):
+        if st.button("6. Bargeld abheben (Milton)", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("bargeld", betrag_val, i)}
                 for i in range(0, 5)
@@ -223,14 +237,14 @@ with col_tableau:
     with row1_c2:
         show_bilanz("Zentralbank")
     with row1_c3:
-        show_bilanz("Bank A")
+        show_bilanz("London Bank")
 
     st.divider()
 
     # ZWEITE ZEILE: Bürger (Zentriert durch leere Spalten links und rechts)
     row2_empty1, row2_empty2, row2_c2 = st.columns(3)
     with row2_c2:
-        show_bilanz("Bürger")
+        show_bilanz("Milton")
 
 # ---------------------------------------------------------
 # 6. MOTOR (Für die Animationen)
