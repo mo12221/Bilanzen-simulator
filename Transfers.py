@@ -1157,7 +1157,7 @@ def staat_prozess(aktion, betrag, schritt):
                 # Planung: Welche Konten leuchten auf?
                 st.session_state.highlights_plan = [
                     "Staatsanleihen", "Bestand Staatsanleihen",
-                    "Reserve bei ZB", "Reserve Bank A"
+                    "Reserve bei ZB", "Reserve London Bank"
                 ]
                 st.session_state.logs.append(f"🚀 QE-Programm gestartet: ZB kauft Anleihen im Wert von {betrag}£.")
 
