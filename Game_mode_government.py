@@ -92,7 +92,7 @@ if 'initialized' not in st.session_state:
             "Liabilities": {"Kredit bei ZB":0,"Einlage Milton": 0, "Eigenkapital Bank": 0}
         },
         "Milton": {
-            "Assets": {"Bankguthaben": 0, "Bargeld":0},
+            "Assets": {"Bankguthaben": 0, "Bargeld":100},
             "Liabilities": {"Eigenkapital Milton": 0}
         }
     }
@@ -218,7 +218,13 @@ with col_control:
             st.rerun()
         if st.button("Bargeld abheben (Milton)", use_container_width=True):
             st.session_state.pending_steps = [
-                {"func": staat_prozess, "args": ("bargeld", betrag_val, i)}
+                {"func": staat_prozess, "args": ("bargeld_abheben", betrag_val, i)}
+                for i in range(0, 5)
+            ]
+            st.rerun()
+        if st.button("Bargeld einzahlen (Milton)", use_container_width=True):
+            st.session_state.pending_steps = [
+                {"func": staat_prozess, "args": ("bargeld_einzahlen", betrag_val, i)}
                 for i in range(0, 5)
             ]
             st.rerun()
