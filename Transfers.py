@@ -1043,7 +1043,13 @@ def staat_prozess(aktion, betrag, schritt):
                 st.session_state.logs.append(f"📜 Staat: {betrag}€ Anleihen im Eigenbestand erzeugt.")
 
         elif aktion == "verkaufen":
-            if schritt == 1:
+            if schritt == 0:
+                bestand_staat = st.session_state.balances["Staat"]["Assets"]["Anleihen Eigenbestand"]
+                if betrag > bestand_staat:
+                    st.error(f"❌ Der Staat hat nicht genug Anleihen im Eigenbestand ({bestand_staat}£ verfügbar).")
+                    st.session_state.pending_steps = []  # Stoppt die automatische Abfolge
+                    return False
+            elif schritt == 1:
                 st.session_state.highlights_plan = ["Anleihen Eigenbestand","Staatsanleihen"
                     ,"Guthaben Staat","Guthaben bei ZB","Reserve bei ZB", "Reserve London Bank"]
             elif schritt == 2:
@@ -1066,7 +1072,14 @@ def staat_prozess(aktion, betrag, schritt):
                 st.session_state.logs.append(f"🏛️ Verkauf Schritt 3: Staat verkauft die Anleihe.")
 
         elif aktion == "lohn":
-            if schritt == 1:
+            if schritt == 0:
+                guthaben_staat = st.session_state.balances["Staat"]["Assets"]["Guthaben bei ZB"]
+                if betrag > guthaben_staat:
+                    st.error(f"❌ Der Staat ist zahlungsunfähig! Guthaben: {guthaben_staat}£, Benötigt: {betrag}£.")
+                    st.session_state.logs.append("⚠️ Lohnzahlung abgebrochen: Staatliche Reserven unzureichend.")
+                    st.session_state.pending_steps = []
+                    return False
+            elif schritt == 1:
                 st.session_state.highlights_plan = ["Guthaben bei ZB", "Eigenkapital Staat", "Guthaben Staat"
                     ,"Reserve bei ZB","Reserve London Bank","Bankguthaben", "Einlage Milton", "Eigenkapital Milton"]
             elif schritt == 2:
