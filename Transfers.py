@@ -1093,10 +1093,18 @@ def staat_prozess(aktion, betrag, schritt):
                 st.session_state.logs.append(f"💸 Lohn Schritt 3: Milton erhält Giralgeld.")
 
         elif aktion == "steuern":
+            bankguthaben = st.session_state.balances["Milton"]["Assets"]["Bankguthaben"]
+            bargeld = st.session_state.balances["Milton"]["Assets"]["Bargeld"]
             if schritt == 1:
+                if betrag > bankguthaben:
+                     st.session_state.logs.append("Du hast nicht genug Guthaben, um deine Steuern zu zahlen. Verdiene Geld oder zahle Bargeld ein!")
+                     st.session_state.pending_steps = []
+                     return False
+
                 st.session_state.highlights_plan = ["Bankguthaben", "Einlage Milton", "Eigenkapital Milton",
                                                     "Reserve bei ZB", "Reserve London Bank","Guthaben bei ZB",
                                                     "Eigenkapital Staat", "Guthaben Staat"]
+
             elif schritt == 2:
                 st.session_state.balances["London Bank"]["Liabilities"]["Einlage Milton"] -= betrag
                 st.session_state.balances["Milton"]["Assets"]["Bankguthaben"] -= betrag
@@ -1120,7 +1128,7 @@ def staat_prozess(aktion, betrag, schritt):
                 st.session_state.highlights_plan = []
                 st.session_state.logs.append(f"💸 Steuern Schritt 3: Staat erhält Reserven.")
 
-        elif aktion == "bargeld":
+        elif aktion == "bargeld_abheben":
             guthaben = st.session_state.balances["Milton"]["Assets"]["Bankguthaben"]
             reserve_bank = st.session_state.balances["London Bank"]["Assets"]["Reserve bei ZB"]
             if schritt == 0:
@@ -1152,6 +1160,32 @@ def staat_prozess(aktion, betrag, schritt):
             elif schritt == 4:
                 st.session_state.highlights_plan = []
                 st.session_state.logs.append(f"💸 Bargeld abgehoben.")
+        elif aktion == "bargeld_einzahlen":
+            bargeld = st.session_state.balances["Milton"]["Assets"]["Bargeld"]
+            reserve_bank = st.session_state.balances["London Bank"]["Assets"]["Reserve bei ZB"]
+            if schritt == 0:
+                if betrag > bargeld:
+                    st.session_state.logs.append(f"Zu wenig Bargeld!")
+                    st.session_state.pending_steps = []
+                    return False
+                st.session_state.highlights_plan = ["Bankguthaben", "Einlage Milton",
+                                                    "Reserve bei ZB", "Reserve London Bank",
+                                                    "Bargeld","Bargeldumlauf"]
+            elif schritt == 1:
+                st.session_state.balances["London Bank"]["Liabilities"]["Einlage Milton"] += betrag
+                st.session_state.balances["Milton"]["Assets"]["Bankguthaben"] += betrag
+                st.session_state.highlights_green = ["Bankguthaben", "Einlage Milton"]
+            elif schritt == 2:
+                st.session_state.balances["London Bank"]["Assets"]["Reserve bei ZB"] += betrag
+                st.session_state.balances["Zentralbank"]["Liabilities"]["Reserve London Bank"] += betrag
+                st.session_state.highlights_green = ["Reserve bei ZB", "Reserve London Bank"]
+            elif schritt == 3:
+                st.session_state.balances["Zentralbank"]["Liabilities"]["Bargeldumlauf"] -= betrag
+                st.session_state.balances["Milton"]["Assets"]["Bargeld"] -= betrag
+                st.session_state.highlights_red = ["Bargeld","Bargeldumlauf"]
+            elif schritt == 4:
+                st.session_state.highlights_plan = []
+                st.session_state.logs.append(f"💸 Bargeld eingezahlt.")
         elif aktion == "QE":
             if schritt == 1:
                 # Planung: Welche Konten leuchten auf?
