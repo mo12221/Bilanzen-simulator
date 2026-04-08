@@ -177,7 +177,7 @@ with col_control:
         if st.button("Anleihe kaufen", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("verkaufen", betrag_val, i)}
-                for i in range(1, 6)
+                for i in range(0, 6)
             ]
             st.rerun()
         st.divider()
@@ -194,7 +194,7 @@ with col_control:
         if st.button("Lohn zahlen (Staat)", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("lohn", betrag_val, i)}
-                    for i in range(1, 7)
+                    for i in range(0, 7)
             ]
             st.rerun()
         st.divider()
