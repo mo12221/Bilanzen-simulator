@@ -265,7 +265,7 @@ with col_control:
     with control_box:
         speed = st.slider("Dauer Animation (sek)", 0.0, 4.0, 2.0, key="intro_speed")
         zins_val = st.slider("Zinssatz (%)", 0.0, 0.20, 0.0, step=0.01)
-        st.write("** Kreditschöpfung **")
+        st.write("**Kreditschöpfung**")
         c1, c2, c3 = st.columns(3)
         num_steps = 4 if betrag > 0 else 6
         with c1:
