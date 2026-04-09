@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 from Transfers import staat_prozess
+
 # 1. KONFIGURATION & CSS
 st.set_page_config(layout="wide", page_title="Staatsfinanzierungs-Simulator")
 
@@ -45,7 +46,7 @@ st.markdown("""
             border-radius: 3px;
             font-weight: 500;
         }
-        
+
         /* GRÜNER Flash: Für Zunahmen (+) */
         @keyframes flash-green {
             0% { background-color: #c8e6c9; color: #1b5e20; }
@@ -59,7 +60,7 @@ st.markdown("""
             padding: 2px;
             border-radius: 3px;
         }
-    
+
         /* ROTER Flash: Für Abnahmen (-) */
         @keyframes flash-red {
             0% { background-color: #ffcdd2; color: #b71c1c; }
@@ -85,14 +86,14 @@ if 'initialized' not in st.session_state:
         },
         "Zentralbank": {
             "Assets": {"Forderung London Bank": 0, "Bestand Staatsanleihen": 0},
-            "Liabilities": {"Bargeldumlauf":0,"Reserve London Bank": 0, "Guthaben Staat": 0}
+            "Liabilities": {"Bargeldumlauf": 0, "Reserve London Bank": 0, "Guthaben Staat": 0}
         },
         "London Bank": {
             "Assets": {"Reserve bei ZB": 0, "Staatsanleihen": 0},
-            "Liabilities": {"Kredit bei ZB":0,"Einlage Milton": 0, "Eigenkapital Bank": 0}
+            "Liabilities": {"Kredit bei ZB": 0, "Einlage Milton": 0, "Eigenkapital Bank": 0}
         },
         "Milton": {
-            "Assets": {"Bankguthaben": 0, "Bargeld":100},
+            "Assets": {"Bankguthaben": 0, "Bargeld": 0},
             "Liabilities": {"Eigenkapital Milton": 0}
         }
     }
@@ -102,6 +103,7 @@ if 'initialized' not in st.session_state:
     st.session_state.highlights_green = []
     st.session_state.highlights_plan = []
     st.session_state.initialized = True
+
 
 # 4. HILFSFUNKTION BILANZ
 def show_bilanz(name):
@@ -173,7 +175,6 @@ with col_control:
             ]
             st.rerun()
 
-
         if st.button("Anleihe kaufen", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("verkaufen", betrag_val, i)}
@@ -182,11 +183,10 @@ with col_control:
             st.rerun()
         st.divider()
 
-
         st.write("**Staat**")
         if st.button("Anleihe erzeugen", use_container_width=True):
             st.session_state.pending_steps = [
-                {"func": staat_prozess, "args":("erzeugen", betrag_val, i)}
+                {"func": staat_prozess, "args": ("erzeugen", betrag_val, i)}
                 for i in range(1, 4)
             ]
             st.rerun()
@@ -194,7 +194,7 @@ with col_control:
         if st.button("Lohn zahlen (Staat)", use_container_width=True):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("lohn", betrag_val, i)}
-                    for i in range(0, 7)
+                for i in range(0, 7)
             ]
             st.rerun()
         st.divider()
@@ -204,7 +204,7 @@ with col_control:
                      help="Die ZB kauft Anleihen ab und 'flutet' die Bank mit Reserven."):
             st.session_state.pending_steps = [
                 {"func": staat_prozess, "args": ("QE", betrag_val, i)}
-                for i in range(1, 5)
+                for i in range(1, 6)
             ]
             st.rerun()
         st.divider()
@@ -236,7 +236,8 @@ with col_control:
 
 # --- RECHTE SPALTE: DIE BILANZEN ---
 with col_tableau:
-    st.markdown("<h2 style='text-align: center; margin-bottom: 10px;'>🏛️ Staatsfinanzierungs-Tableau</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; margin-bottom: 10px;'>🏛️ Staatsfinanzierungs-Tableau</h2>",
+                unsafe_allow_html=True)
 
     # ERSTE ZEILE: Staat | Zentralbank | Bank A
     row1_c1, row1_c2, row1_c3 = st.columns(3)
@@ -257,7 +258,8 @@ with col_tableau:
 # ---------------------------------------------------------
 # 6. MOTOR (Für die Animationen)
 # ---------------------------------------------------------
-has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
+has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(
+    st.session_state.get("highlights_red", [])) > 0
 
 if st.session_state.get("pending_steps") or has_active_highlights:
 
@@ -270,7 +272,7 @@ if st.session_state.get("pending_steps") or has_active_highlights:
         if not st.session_state.get("pending_steps"):
             st.session_state.highlights_plan = []
 
-        time.sleep(1) # Kurzer technischer Reset
+        time.sleep(1)  # Kurzer technischer Reset
         st.rerun()
 
     # 2. AKTIONS-PHASE: Nächsten Schritt ausführen
