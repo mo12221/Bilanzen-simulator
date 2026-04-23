@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import time
 
-from Transfers import prozess_kredit, lohnzahlung_prozess, interbank_transfer,prozess_kredit_intro, zb_kredit_prozess, bargeld_intro
+from Transfers import prozess_kredit, lohnzahlung_prozess, interbank_transfer, prozess_kredit_intro, zb_kredit_prozess, \
+    bargeld_intro
 from Game_play import get_mission
 import matplotlib.pyplot as plt
 
@@ -89,7 +90,7 @@ st.markdown("""
             border-radius: 3px;
             font-weight: 500;
         }
-        
+
 /* GRÜNER Flash: Für Zunahmen (+) */
     @keyframes flash-green {
         0% { background-color: #c8e6c9; color: #1b5e20; }
@@ -122,31 +123,31 @@ st.markdown("""
 
 # 2. INITIALISIERUNG DES SPEICHERS (Session State)
 if 'initialized' not in st.session_state:
-
     st.session_state.balances = {
         "Bank of England (BoE)": {
             "Assets": {"Forderung London Bank": 0, "Forderung Edinburgh Bank": 0},
             "Liabilities": {"Reserve London Bank": 0, "Reserve Edinburgh Bank": 0, "Bargeldumlauf": 0}
         },
         "London Bank (LB)": {
-            "Assets": {"Reserve bei BoE LB": 0,"Kredite Karl": 0,"Kredite Friedrich": 0, "Staatsanleihen L. Bank": 200},
-            "Liabilities": {"Kredit bei BoE LB": 0, "Einlage Karl": 0, "Einlage Friedrich": 0, "Eigenkapital LB": 200}
+            "Assets": {"Reserve bei BoE LB": 0, "Kredite Karl": 0, "Kredite Friedrich": 0,
+                       "Staatsanleihen LB": 200, "Staatsanleihen (verpfändet) LB": 0},
+            "Liabilities": {"Refinanzierungskredit bei BoE LB": 0, "Einlage Karl": 0, "Einlage Friedrich": 0, "Eigenkapital LB": 200}
         },
         "Edinburgh Bank (EB)": {
-            "Assets": {"Reserve bei BoE EB": 0, "Kredite Adam": 0, "Staatsanleihen L. Bank": 100},
-            "Liabilities": {"Kredit bei BoE EB": 0, "Einlage Adam": 0, "Eigenkapital EB": 100}
+            "Assets": {"Reserve bei BoE EB": 0, "Kredite Adam": 0, "Staatsanleihen EB": 100, "Staatsanleihen (verpfändet) EB": 0},
+            "Liabilities": {"Refinanzierungskredit bei BoE EB": 0, "Einlage Adam": 0, "Eigenkapital EB": 100}
         },
         "Karl": {
             "Assets": {"Bankguthaben Karl bei LB": 0, "Bargeld K.": 0, "Sachvermögen K.": 100},
-            "Liabilities": {"Kredit bei LB": 0, "Eigenkapital K.": 100}
+            "Liabilities": {"Darlehen bei LB": 0, "Eigenkapital K.": 100}
         },
         "Adam": {
             "Assets": {"Bankguthaben Adam bei EB": 0, "Bargeld A.": 0, "Sachvermögen A.": 100},
-            "Liabilities": {"Kredit Adam bei EB": 0, "Eigenkapital A.": 100}
+            "Liabilities": {"Darlehen Adam bei EB": 0, "Eigenkapital A.": 100}
         },
         "Friedrich": {
             "Assets": {"Bankguthaben Friedrich bei LB": 0, "Bargeld F.": 0, "Sachvermögen F.": 100},
-            "Liabilities": {"Kredit Friedrich bei LB": 0, "Eigenkapital F.": 100}
+            "Liabilities": {"Darlehen Friedrich bei LB": 0, "Eigenkapital F.": 100}
         }
     }
     st.session_state.BIP_history = [0]  # Startwert für den Plot
@@ -229,18 +230,20 @@ def show_bilanz(name):
 
 with col_tableau:
     st.subheader("Wirtschafts-Tableau")
+
     # ERSTE ZEILE: Bank A | Zentralbank | Bank B
     row1_col1, row1_col2, row1_col3 = st.columns(3)
     with row1_col1:
         show_bilanz("London Bank (LB)")
     with row1_col2:
+        # Die Zentralbank bleibt oben (wirkt dadurch 'angehoben')
         show_bilanz("Bank of England (BoE)")
     with row1_col3:
         show_bilanz("Edinburgh Bank (EB)")
 
     st.divider()
 
-    # ZWEITE ZEILE: UK | Bank C | UI
+    # ZWEITE ZEILE: Karl | Friedrich | Adam
     row2_col1, row2_col2, row2_col3 = st.columns(3)
     with row2_col1:
         show_bilanz("Karl")
@@ -248,6 +251,29 @@ with col_tableau:
         show_bilanz("Friedrich")
     with row2_col3:
         show_bilanz("Adam")
+
+    # --- MITTIGE GELDMENGEN-ANZEIGE UNTEN ---
+    st.write("")
+    # Wir erstellen 3 Spalten, nutzen aber nur die mittlere (Breite 2), um M0/M1 zu zentrieren
+    _, center_col, _ = st.columns([1, 2, 1])
+
+    with center_col:
+        st.write("### ⚖️ Monetäre Aggregate: M0 = ZB-Geld | M1 = Privates Geld")
+
+        # Berechnung (Beispielwerte aus deinem System)
+        m0 = sum(st.session_state.balances["Bank of England (BoE)"]["Liabilities"].values())
+
+        # M1 Summe (Karl + Friedrich + Adam + Milton)
+        m1 = (st.session_state.balances["London Bank (LB)"]["Liabilities"].get("Einlage Karl", 0) +
+              st.session_state.balances["London Bank (LB)"]["Liabilities"].get("Einlage Friedrich", 0) +
+              st.session_state.balances["Edinburgh Bank (EB)"]["Liabilities"].get("Einlage Adam", 0))
+
+        m_col1, m_col2 = st.columns(2)
+        m_col1.metric("Basisgeld (M0)", f"{m0} £")
+        m_col2.metric("Geldmenge (M1)", f"{m1} £")
+
+
+
 
 # --- LINKE SPALTE: LOG & STEUERUNG ---
 with col_control:
@@ -273,7 +299,7 @@ with col_control:
                 st.session_state.pending_steps = [
                     {"func": prozess_kredit_intro,
                      "args": (betrag, zins_val, "Karl", "London Bank (LB)", speed, i)}
-                    for i in range(0,num_steps)
+                    for i in range(0, num_steps)
                 ]
                 st.rerun()
 
@@ -282,7 +308,7 @@ with col_control:
                 st.session_state.pending_steps = [
                     {"func": prozess_kredit_intro,
                      "args": (betrag, zins_val, "Friedrich", "London Bank (LB)", speed, i)}
-                    for i in range(0,num_steps)
+                    for i in range(0, num_steps)
                 ]
                 st.rerun()
 
@@ -292,7 +318,7 @@ with col_control:
                 st.session_state.pending_steps = [
                     {"func": prozess_kredit_intro,
                      "args": (betrag, zins_val, "Adam", "Edinburgh Bank (EB)", speed, i)}
-                    for i in range(0,num_steps)
+                    for i in range(0, num_steps)
                 ]
                 st.rerun()
         st.divider()
@@ -307,7 +333,7 @@ with col_control:
                 st.session_state.pending_steps = [
                     {"func": zb_kredit_prozess,
                      "args": (betrag, "London Bank (LB)", speed, i)}
-                    for i in range(0, 4)  # 4 Schritte laut der neuen Funktion
+                    for i in range(0, 5)  # 4 Schritte laut der neuen Funktion
                 ]
                 st.rerun()
 
@@ -317,7 +343,7 @@ with col_control:
                 st.session_state.pending_steps = [
                     {"func": zb_kredit_prozess,
                      "args": (betrag, "Edinburgh Bank (EB)", speed, i)}
-                    for i in range(0, 4)  # 4 Schritte laut der neuen Funktion
+                    for i in range(0, 5)  # 4 Schritte laut der neuen Funktion
                 ]
                 st.rerun()
 
@@ -341,7 +367,7 @@ with col_control:
             empfaenger = st.selectbox("Empfänger", empfaenger_liste, index=0)
 
         # 2. Den Transfer-Button auslösen
-        if st.button(f"💸 Transfer: {sender} ➔ {empfaenger}", use_container_width=True):
+        if st.button(f"💸 Zahlung: {sender} ➔ {empfaenger}", use_container_width=True):
             bank_s = bank_mapping[sender]
             bank_e = bank_mapping[empfaenger]
 
@@ -378,7 +404,8 @@ with col_control:
                 st.rerun()
 
 # --- MOTOR (Optimiert für Plan & Action Timing) ---
-has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(st.session_state.get("highlights_red", [])) > 0
+has_active_highlights = len(st.session_state.get("highlights_green", [])) > 0 or len(
+    st.session_state.get("highlights_red", [])) > 0
 
 if st.session_state.get("pending_steps") or has_active_highlights:
 
@@ -391,7 +418,7 @@ if st.session_state.get("pending_steps") or has_active_highlights:
         if not st.session_state.get("pending_steps"):
             st.session_state.highlights_plan = []
 
-        time.sleep(2) # Kurzer technischer Reset
+        time.sleep(2)  # Kurzer technischer Reset
         st.rerun()
 
     # 2. AKTIONS-PHASE: Nächsten Schritt ausführen
