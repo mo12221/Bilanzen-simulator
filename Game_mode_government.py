@@ -81,16 +81,16 @@ st.markdown("""
 if 'initialized' not in st.session_state:
     st.session_state.balances = {
         "Staat": {
-            "Assets": {"Guthaben bei ZB": 0, "Anleihen Eigenbestand": 0},
+            "Assets": {"Guthaben bei BoE": 0, "Anleihen Eigenbestand": 0},
             "Liabilities": {"Staatsanleihen (Gesamt)": 0, "Eigenkapital Staat": 0}
         },
-        "Zentralbank": {
+        "Bank of England": {
             "Assets": {"Forderung London Bank": 0, "Bestand Staatsanleihen": 0},
             "Liabilities": {"Bargeldumlauf": 0, "Reserve London Bank": 0, "Guthaben Staat": 0}
         },
         "London Bank": {
-            "Assets": {"Reserve bei ZB": 0, "Staatsanleihen": 0},
-            "Liabilities": {"Kredit bei ZB": 0, "Einlage Milton": 0, "Eigenkapital Bank": 0}
+            "Assets": {"Reserve bei BoE": 0, "Staatsanleihen": 0},
+            "Liabilities": {"Refinanzierungskredit bei BoE": 0, "Einlage Milton": 0, "Eigenkapital Bank": 0}
         },
         "Milton": {
             "Assets": {"Bankguthaben": 0, "Bargeld": 0},
@@ -244,7 +244,7 @@ with col_tableau:
     with row1_c1:
         show_bilanz("Staat")
     with row1_c2:
-        show_bilanz("Zentralbank")
+        show_bilanz("Bank of England")
     with row1_c3:
         show_bilanz("London Bank")
 
@@ -254,6 +254,25 @@ with col_tableau:
     row2_empty1, row2_empty2, row2_c2 = st.columns(3)
     with row2_c2:
         show_bilanz("Milton")
+
+        # --- MITTIGE GELDMENGEN-ANZEIGE UNTEN ---
+    st.write("")
+    # Wir erstellen 3 Spalten, nutzen aber nur die mittlere (Breite 2), um M0/M1 zu zentrieren
+    _, center_col, _ = st.columns([1, 2, 1])
+
+    with center_col:
+        st.write("### ⚖️ Monetäre Aggregate: M0 = ZB-Geld | M1 = Privates Geld")
+
+        # Berechnung (Beispielwerte aus deinem System)
+        m0 = (st.session_state.balances["Bank of England"]["Liabilities"].get("Reserve London Bank",0) +
+              st.session_state.balances["Bank of England"]["Liabilities"].get("Bargeldumlauf", 0))
+
+        # M1 Summe (Karl + Friedrich + Adam + Milton)
+        m1 = st.session_state.balances["London Bank"]["Liabilities"].get("Einlage Milton", 0)
+
+        m_col1, m_col2 = st.columns(2)
+        m_col1.metric("Basisgeld (M0)", f"{m0} £")
+        m_col2.metric("Geldmenge (M1)", f"{m1} £")
 
 # ---------------------------------------------------------
 # 6. MOTOR (Für die Animationen)
