@@ -671,11 +671,15 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
     if "London" in bank_name:
         b_id = "LB"
         b_full = "London Bank"
-        anleihen_key = "Staatsanleihen L. Bank"
+        anleihen_key = "Staatsanleihen LB"
+        anleihen_key_verpfändet = "Staatsanleihen (verpfändet) LB"
+
     else:
         b_id = "EB"
         b_full = "Edinburgh Bank"
         anleihen_key = "Staatsanleihen EB"
+        anleihen_key_verpfändet = "Staatsanleihen (verpfändet) EB"
+
 
     try:
         # --- SCHRITT 0: Validierung (Sicherheiten-Check) ---
@@ -691,8 +695,9 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
             # Plan aufstellen: Alle beteiligten Konten markieren
             st.session_state.highlights_plan = [
                 anleihen_key,
+                anleihen_key_verpfändet,
                 f"Forderung {b_full}",
-                f"Kredit bei BoE {b_id}",
+                f"Refinanzierungskredit bei BoE {b_id}",
                 f"Reserve bei BoE {b_id}",
                 f"Reserve {b_full}"
             ]
@@ -703,9 +708,9 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
         elif schritt == 1:
             # BoE bekommt Forderung, Geschäftsbank bekommt Verbindlichkeit
             st.session_state.balances["Bank of England (BoE)"]["Assets"][f"Forderung {b_full}"] += betrag
-            st.session_state.balances[bank_name]["Liabilities"][f"Kredit bei BoE {b_id}"] += betrag
+            st.session_state.balances[bank_name]["Liabilities"][f"Refinanzierungskredit bei BoE {b_id}"] += betrag
 
-            st.session_state.highlights_green = [f"Forderung {b_full}", f"Kredit bei BoE {b_id}"]
+            st.session_state.highlights_green = [f"Forderung {b_full}", f"Refinanzierungskredit bei BoE {b_id}"]
             st.session_state.logs.append(f"🏛️ BoE gewährt Kredit an {b_id}. Schulden der Bank steigen.")
 
         # --- SCHRITT 2: Gutschrift der Reserven ---
@@ -716,14 +721,18 @@ def zb_kredit_prozess(betrag, bank_name, speed, schritt):
 
             st.session_state.highlights_green = [f"Reserve bei BoE {b_id}", f"Reserve {b_full}"]
             # Wir lassen die Anleihen gelb leuchten als Hinweis auf die Besicherung
-            st.session_state.highlights_plan = [anleihen_key]
+            st.session_state.highlights_plan = [anleihen_key,anleihen_key_verpfändet]
             st.session_state.logs.append(f"💰 {b_full} erhält Reserven auf ihrem BoE-Konto.")
 
         # --- SCHRITT 3: Abschluss & Cleanup ---
         elif schritt == 3:
-            st.session_state.highlights_plan = []
-            st.session_state.highlights_green = []
-            st.session_state.highlights_red = []
+            st.session_state.balances[bank_name]["Assets"][anleihen_key] -= betrag
+            st.session_state.highlights_red = [anleihen_key]
+            st.session_state.logs.append(f"📈 Als Sicherheit verpfändet {b_full} eine Staatsanleihe (REPO).")
+        elif schritt == 4:
+            st.session_state.balances[bank_name]["Assets"][anleihen_key_verpfändet] += betrag
+            #st.session_state.highlights_plan = []
+            st.session_state.highlights_green = [anleihen_key_verpfändet]
             st.session_state.logs.append(f"✅ Refinanzierung abgeschlossen. {b_full} ist nun liquide.")
 
         return True
@@ -834,6 +843,7 @@ def interbank_transfer(betrag, sender, empfaenger, bank_sender, bank_empfaenger,
             guthaben = st.session_state.balances[sender]["Assets"][f"Bankguthaben {sender} bei {s_id}"]
             if betrag > guthaben:
                 st.error(f"⚠️ {sender} hat nicht genug Guthaben!")
+                st.session_state.logs.append(f"⚠️ {sender} hat nicht genug Guthaben!")
                 st.session_state.pending_steps = []
                 return False
 
@@ -842,6 +852,7 @@ def interbank_transfer(betrag, sender, empfaenger, bank_sender, bank_empfaenger,
                 reserven = st.session_state.balances[bank_sender]["Assets"][f"Reserve bei BoE {s_id}"]
                 if betrag > reserven:
                     st.error(f"⚠️ {bank_sender} hat nicht genug Reserven für den Transfer zu einer anderen Bank!")
+                    st.session_state.logs.append(f"⚠️ {bank_sender} hat nicht genug Reserven für den Transfer zu einer anderen Bank!")
                     st.session_state.pending_steps = []
                     return False
 
@@ -927,9 +938,9 @@ def prozess_kredit_intro(betrag, interest_rate, firma, bank, speed, schritt):
 
     # --- DYNAMISCHE KONTENNAMEN (Mapping auf deinen neuen State) ---
     asset_firma = f"Bankguthaben {name} bei {b_short}"
-    liab_firma = f"Kredit bei {b_short}" if name == "Karl" else f"Kredit {name} bei {b_short}"
+    liab_firma = f"Darlehen bei {b_short}" if name == "Karl" else f"Darlehen {name} bei {b_short}"
     # Sonderfall Adam: In deiner Bilanz heißt es "Kredit Adam bei EB"
-    if name == "Adam": liab_firma = "Kredit Adam bei EB"
+    if name == "Adam": liab_firma = "Darlehen Adam bei EB"
 
     asset_bank = f"Kredite {name}"
     liab_bank = f"Einlage {name}"
