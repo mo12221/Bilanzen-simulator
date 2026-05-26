@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
+import altair as alt
 
 from Transfers import prozess_kredit, lohnzahlung_prozess, interbank_transfer, prozess_kredit_intro, zb_kredit_prozess, \
     bargeld_intro
@@ -268,9 +269,32 @@ with col_tableau:
               st.session_state.balances["London Bank (LB)"]["Liabilities"].get("Einlage Friedrich", 0) +
               st.session_state.balances["Edinburgh Bank (EB)"]["Liabilities"].get("Einlage Adam", 0))
 
-        m_col1, m_col2 = st.columns(2)
-        m_col1.metric("Basisgeld (M0)", f"{m0} £")
-        m_col2.metric("Geldmenge (M1)", f"{m1} £")
+        # --- 3. ANZEIGE ALS LIVE-BALKEN ---
+        # Daten für das Diagramm vorbereiten
+        df = pd.DataFrame({
+            "Geldmenge": ["Basisgeld (M0)", "Giralgeld (M1)"],
+            "Betrag": [m0, m1]
+        })
+
+        chart = alt.Chart(df).mark_bar(size=40).encode(  # size=40 macht die Balken schön dünn!
+            x=alt.X("Geldmenge:N",
+                    axis=alt.Axis(
+                        labelAngle=0,  # 0 Grad = Perfekt im Querformat/Horizontal!
+                        labelFontSize=12,
+                        title=None
+                    )),
+            y=alt.Y("Betrag:Q", title="Betrag in £"),
+            color=alt.Color("Geldmenge:N", legend=None, scale=alt.Scale(range=["#1f77b4", "#ff7f0e"]))
+            # Blau für M0, Orange für M1
+        ).properties(
+            width=300,  # Begrenzt die Gesamtbreite des Diagramms
+            height=250  # Höhe des Diagramms
+        )
+
+        # Diagramm im Streamlit anzeigen
+        st.altair_chart(chart, width="stretch")
+
+        st.caption("💡 **M0** = ZB-Geld im Umlauf | **M1** = Giralgeld")
 
 
 
