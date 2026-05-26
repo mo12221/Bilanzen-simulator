@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 from Transfers import staat_prozess
+import altair as alt
 
 # 1. KONFIGURATION & CSS
 st.set_page_config(layout="wide", page_title="Staatsfinanzierungs-Simulator")
@@ -256,24 +257,51 @@ with col_tableau:
         show_bilanz("Milton")
 
         # --- MITTIGE GELDMENGEN-ANZEIGE UNTEN ---
-    st.write("")
-    # Wir erstellen 3 Spalten, nutzen aber nur die mittlere (Breite 2), um M0/M1 zu zentrieren
-    _, center_col, _ = st.columns([1, 2, 1])
 
-    with center_col:
-        st.write("### ⚖️ Monetäre Aggregate: M0 = ZB-Geld | M1 = Privates Geld")
+    with row2_empty1:
+        st.write("### ⚖️ Monetäre Aggregate")
 
-        # Berechnung (Beispielwerte aus deinem System)
-        m0 = (st.session_state.balances["Bank of England"]["Liabilities"].get("Reserve London Bank",0) +
-              st.session_state.balances["Bank of England"]["Liabilities"].get("Bargeldumlauf", 0))
+        try:
+            # --- 1. BERECHNUNG M0 (Aus den Passiva der Bank of England) ---
+            boe_liabilities = st.session_state.balances["Bank of England"]["Liabilities"]
+            m0 = (
+                    boe_liabilities.get("Reserve London Bank", 0) +
+                    boe_liabilities.get("Bargeldumlauf", 0)
+            )
 
-        # M1 Summe (Karl + Friedrich + Adam + Milton)
-        m1 = st.session_state.balances["London Bank"]["Liabilities"].get("Einlage Milton", 0)
+            # --- 2. BERECHNUNG M1 (Aus den Passiva der London Bank) ---
+            lb_liabilities = st.session_state.balances["London Bank"]["Liabilities"]
+            m1 = lb_liabilities.get("Einlage Milton", 0)
 
-        m_col1, m_col2 = st.columns(2)
-        m_col1.metric("Basisgeld (M0)", f"{m0} £")
-        m_col2.metric("Geldmenge (M1)", f"{m1} £")
+            # --- 3. ANZEIGE ALS LIVE-BALKEN ---
+            # Daten für das Diagramm vorbereiten
+            df = pd.DataFrame({
+                "Geldmenge": ["Basisgeld (M0)", "Giralgeld (M1)"],
+                "Betrag": [m0, m1]
+            })
 
+            chart = alt.Chart(df).mark_bar(size=40).encode(  # size=40 macht die Balken schön dünn!
+                x=alt.X("Geldmenge:N",
+                        axis=alt.Axis(
+                            labelAngle=0,  # 0 Grad = Perfekt im Querformat/Horizontal!
+                            labelFontSize=12,
+                            title=None
+                        )),
+                y=alt.Y("Betrag:Q", title="Betrag in £"),
+                color=alt.Color("Geldmenge:N", legend=None, scale=alt.Scale(range=["#1f77b4", "#ff7f0e"]))
+                # Blau für M0, Orange für M1
+            ).properties(
+                width=300,  # Begrenzt die Gesamtbreite des Diagramms
+                height=250  # Höhe des Diagramms
+            )
+
+            # Diagramm im Streamlit anzeigen
+            st.altair_chart(chart, width="stretch")
+
+            st.caption("💡 **M0** = ZB-Geld im Umlauf | **M1** = Giralgeld bei Milton")
+
+        except KeyError as e:
+            st.error(f"Fehler bei der Geldmengenberechnung: Der Key {e} wurde im session_state nicht gefunden!")
 # ---------------------------------------------------------
 # 6. MOTOR (Für die Animationen)
 # ---------------------------------------------------------
